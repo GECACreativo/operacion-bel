@@ -13,10 +13,13 @@ import Sesiones from './pages/control/Sesiones'
 import SesionDetalle from './pages/control/SesionDetalle'
 
 // Si algo falla al dibujar una pantalla, se muestra un aviso en lugar de una pantalla en blanco.
-class Protector extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null as Error | null }
+class Protector extends Component<{ children: ReactNode }, { error: Error | null; pila: string }> {
+  state = { error: null as Error | null, pila: '' }
   static getDerivedStateFromError(error: Error) { return { error } }
-  componentDidCatch(error: Error) { console.error('[Operación BEL]', error) }
+  componentDidCatch(error: Error, info: { componentStack?: string | null }) {
+    console.error('[Operación BEL]', error, info.componentStack)
+    this.setState({ pila: (info.componentStack ?? '').split('\n').filter(Boolean).slice(0, 6).join('\n') })
+  }
   render() {
     if (!this.state.error) return this.props.children
     return (
@@ -24,6 +27,10 @@ class Protector extends Component<{ children: ReactNode }, { error: Error | null
         <div className="max-w-md">
           <p className="text-xl font-black">Algo salió mal en esta pantalla</p>
           <p className="mt-2 text-sm text-white/70">{this.state.error.message}</p>
+          <details className="mt-3 text-left text-xs text-white/60">
+            <summary className="cursor-pointer">Detalle técnico (para soporte)</summary>
+            <pre className="mt-2 whitespace-pre-wrap">{this.state.pila}{'\n'}{this.state.error.stack?.split('\n').slice(0, 4).join('\n')}</pre>
+          </details>
           <button onClick={() => { window.location.hash = '#/'; window.location.reload() }} className="boton-primario mt-6">Volver al inicio</button>
         </div>
       </div>

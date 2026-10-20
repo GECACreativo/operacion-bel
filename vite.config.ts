@@ -6,5 +6,5 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 export default defineConfig(({ mode }) => ({
   base: './',
   plugins: [react(), ...(mode === 'singlefile' ? [viteSingleFile()] : [])],
-  build: { outDir: mode === 'singlefile' ? 'dist-preview' : 'dist', assetsInlineLimit: mode === 'singlefile' ? 100_000_000 : 4096 },
+  build: { sourcemap: mode !== 'singlefile', outDir: mode === 'singlefile' ? 'dist-preview' : 'dist', assetsInlineLimit: mode === 'singlefile' ? 100_000_000 : 4096 },
 }))
