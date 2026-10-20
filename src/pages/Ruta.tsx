@@ -4,10 +4,12 @@ import { MODULOS } from '../data/modulos'
 import { PARTICIPACION_TEXTO } from '../data/roles'
 import { useEstado } from '../estado'
 import { ChipEstado, Medalla } from '../components/UI'
+import { SinRol } from './MiOperacion'
 import { IconoCandado, IconoReloj } from '../components/Iconos'
 
 export default function Ruta() {
-  const { rol, progreso } = useEstado()
+  const { rol, progreso, perfil } = useEstado()
+  if (!rol) return <SinRol nombre={perfil?.nombre} />
 
   return (
     <div>

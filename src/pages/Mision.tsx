@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { sesionesDemo, xpDe, xpMaxDe } from '../data/demo'
+import { xpDe, xpMaxDe } from '../data/demo'
 import { MODULOS } from '../data/modulos'
 import { PARTICIPACION_TEXTO } from '../data/roles'
 import { useEstado } from '../estado'
@@ -20,7 +20,7 @@ function pasoActual(evid: { tipo: string; estado: string }[], aprobada: boolean)
 
 export default function Mision() {
   const { codigo = '' } = useParams()
-  const { rol, progreso } = useEstado()
+  const { rol, progreso, sesiones } = useEstado()
   const m = MODULOS[codigo]
   const p = progreso.find((x) => x.codigo === codigo)
 
@@ -34,10 +34,10 @@ export default function Mision() {
     )
   }
 
-  const enRol = rol.ruta[codigo]
+  const enRol = rol?.ruta[codigo]
   const aprobada = p.estado === 'aprobada'
   const paso = pasoActual(p.evidencias, aprobada)
-  const sesion = sesionesDemo(progreso).find((s) => s.codigo === codigo)
+  const sesion = sesiones.find((s) => s.codigo === codigo)
 
   return (
     <article className="space-y-6">
@@ -98,7 +98,7 @@ export default function Mision() {
         <div className="space-y-6">
           {enRol && (
             <section className="tarjeta border-l-8 border-dagrd-amarillo p-6" aria-labelledby="t-papel">
-              <p className="etiqueta text-dagrd-azul">Tu papel como {rol.nombre}</p>
+              <p className="etiqueta text-dagrd-azul">Tu papel como {rol?.nombre}</p>
               <h2 id="t-papel" className="mt-1 text-xl font-black">{enRol.hace}</h2>
               <ul className="mt-3 flex flex-wrap gap-2">
                 {enRol.participacion.map((x) => (

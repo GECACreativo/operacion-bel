@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import { COMPANIAS_DEMO, NIVELES, sesionesDemo, xpDe, xpMaxDe } from '../data/demo'
+import { NIVELES, xpDe, xpMaxDe } from '../data/demo'
 import { MODULOS } from '../data/modulos'
 import { useEstado } from '../estado'
-import { Anillo, AvisoPrototipo, Barra, ChipEstado, IconoEvidencia, Medalla } from '../components/UI'
+import { Anillo, Barra, ChipEstado, IconoEvidencia, Medalla } from '../components/UI'
 import { IconoCalendario, IconoFlecha, IconoUbicacion } from '../components/Iconos'
 
 export const fmtFecha = (iso: string) => {
@@ -11,22 +11,21 @@ export const fmtFecha = (iso: string) => {
 }
 
 export default function MiOperacion() {
-  const { rol, progreso, xp, xpMax, nivel, participante } = useEstado()
+  const { rol, progreso, xp, xpMax, nivel, perfil, sesiones, companias } = useEstado()
+  if (!rol || !perfil) return <SinRol nombre={perfil?.nombre} />
   const obligatorias = progreso.filter((p) => p.codigo !== 'RI')
   const aprobadas = obligatorias.filter((p) => p.estado === 'aprobada')
   const actual = progreso.find((p) => p.estado === 'en_curso') ?? progreso.find((p) => p.estado === 'disponible')
-  const sesiones = sesionesDemo(progreso)
 
   return (
     <div className="space-y-6">
-      <AvisoPrototipo />
 
       {/* Resumen */}
       <section className="relative overflow-hidden rounded-3xl bg-dagrd-fondo p-6 text-white sm:p-8" aria-labelledby="t-resumen">
         <span aria-hidden className="absolute -right-16 -top-16 h-52 w-52 rounded-full border-[22px] border-white/[.06]" />
         <span aria-hidden className="absolute -bottom-10 right-24 hidden h-24 w-24 rounded-t-pill bg-white/[.06] sm:block" />
         <div className="relative grid gap-6 sm:grid-cols-[auto_1fr] sm:items-center">
-          <Anillo valor={aprobadas.length / obligatorias.length} tam={132} grosor={13} claro>
+          <Anillo valor={obligatorias.length ? aprobadas.length / obligatorias.length : 0} tam={132} grosor={13} claro>
             <span>
               <span className="block text-3xl font-black">{aprobadas.length}<span className="text-lg text-white/60">/{obligatorias.length}</span></span>
               <span className="block text-[11px] font-bold uppercase tracking-wider text-white/70">misiones</span>
@@ -34,8 +33,8 @@ export default function MiOperacion() {
           </Anillo>
           <div>
             <p className="etiqueta text-dagrd-amarillo">Mi Operación</p>
-            <h1 id="t-resumen" className="mt-1 text-2xl font-black sm:text-3xl">Hola, {participante.nombre}</h1>
-            <p className="mt-1 text-white/75">{rol.nombre} · {participante.estacion} · {participante.compania}</p>
+            <h1 id="t-resumen" className="mt-1 text-2xl font-black sm:text-3xl">Hola, {perfil.nombre.split(' ')[0]}</h1>
+            <p className="mt-1 text-white/75">{[rol.nombre, perfil.estacion, perfil.compania].filter(Boolean).join(' · ')}</p>
             <div className="mt-5 flex flex-wrap gap-3">
               <div className="rounded-2xl bg-white/10 px-4 py-3">
                 <p className="etiqueta text-white/60">Nivel</p>
@@ -132,11 +131,11 @@ export default function MiOperacion() {
           <p className="etiqueta text-dagrd-azul">Nivel 2 · Nuestra compañía</p>
           <h2 id="t-compania" className="mt-1 text-xl font-black">Avance colectivo</h2>
           <ul className="mt-4 space-y-4">
-            {COMPANIAS_DEMO.map((c) => (
+            {companias.map((c) => (
               <li key={c.nombre}>
                 <div className="mb-1 flex justify-between text-sm">
-                  <span className={`font-bold ${c.nombre === participante.compania ? 'text-dagrd-azul' : ''}`}>
-                    {c.nombre}{c.nombre === participante.compania && ' (la tuya)'}
+                  <span className={`font-bold ${c.nombre === perfil.compania ? 'text-dagrd-azul' : ''}`}>
+                    {c.nombre}{c.nombre === perfil.compania && ' (la tuya)'}
                   </span>
                   <span className="font-bold">{Math.round(c.avance * 100)} %</span>
                 </div>
@@ -147,6 +146,15 @@ export default function MiOperacion() {
           <p className="mt-4 text-xs text-dagrd-navy/60">Se calcula sobre la ruta asignada a cada persona, para que la comparación sea justa entre roles.</p>
         </section>
       </div>
+    </div>
+  )
+}
+
+export function SinRol({ nombre }: { nombre?: string }) {
+  return (
+    <div className="tarjeta mx-auto max-w-xl p-8 text-center">
+      <h1 className="text-2xl font-black">Hola{nombre ? `, ${nombre.split(' ')[0]}` : ''}</h1>
+      <p className="mt-2 text-dagrd-navy/75">Todavía no tienes un rol de BEL asignado, por eso no hay misiones en tu ruta. La administración de formación lo asignará pronto.</p>
     </div>
   )
 }

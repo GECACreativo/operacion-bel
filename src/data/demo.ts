@@ -64,8 +64,8 @@ export function progresoDemo(rol: Rol): ProgresoMision[] {
   })
 }
 
-export const xpDe = (p: ProgresoMision) => p.evidencias.filter((e) => e.estado === 'validada').reduce((s, e) => s + e.xp, 0)
-export const xpMaxDe = (p: ProgresoMision) => p.evidencias.reduce((s, e) => s + e.xp, 0)
+export const xpDe = (p: ProgresoMision) => p.xp ?? p.evidencias.filter((e) => e.estado === 'validada').reduce((s, e) => s + e.xp, 0)
+export const xpMaxDe = (p: ProgresoMision) => p.xpMax ?? p.evidencias.reduce((s, e) => s + e.xp, 0)
 
 export function nivelDe(progreso: ProgresoMision[]) {
   const obligatorias = progreso.filter((p) => p.codigo !== 'RI')

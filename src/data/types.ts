@@ -54,6 +54,9 @@ export interface ProgresoMision {
   codigo: string
   estado: EstadoMision
   evidencias: Evidencia[]
+  /** XP neta y máxima calculadas en el servidor */
+  xp?: number
+  xpMax?: number
 }
 
 export interface Sesion {

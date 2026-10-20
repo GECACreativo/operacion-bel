@@ -1,6 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
-import { FAMILIAS, ROLES } from '../data/roles'
 import { useEstado } from '../estado'
 import { IconoCasa, IconoInsignia, IconoRuta, IconoSalir } from './Iconos'
 import logoBomberos from '../assets/logo-bomberos.png'
@@ -32,25 +31,8 @@ export function Logos({ className = 'h-10' }: { className?: string }) {
   )
 }
 
-function SelectorRol() {
-  const { rol, cambiarRol } = useEstado()
-  return (
-    <label className="flex flex-wrap items-center gap-2 text-xs text-dagrd-navy">
-      <span className="font-bold">Vista de prueba · ver la ruta como:</span>
-      <select value={rol.id} onChange={(e) => cambiarRol(e.target.value)}
-        className="min-h-[36px] max-w-full rounded-pill border border-dagrd-navy/20 bg-white px-3 text-xs font-bold">
-        {FAMILIAS.map((f) => (
-          <optgroup key={f} label={f}>
-            {ROLES.filter((r) => r.familia === f).map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-          </optgroup>
-        ))}
-      </select>
-    </label>
-  )
-}
-
 export default function Marco() {
-  const { salir } = useEstado()
+  const { salir, perfil } = useEstado()
   const { pathname } = useLocation()
   useEffect(() => window.scrollTo(0, 0), [pathname])
 
@@ -73,6 +55,7 @@ export default function Marco() {
             </ul>
           </nav>
           <div className="flex items-center gap-3">
+            <span className="hidden max-w-[160px] truncate text-sm font-bold text-white/85 sm:block">{perfil?.nombre}</span>
             <span className="hidden lg:block"><Logos className="h-9" /></span>
             <button onClick={salir} className="grid h-11 w-11 place-items-center rounded-full text-white/85 hover:bg-white/10" aria-label="Cerrar sesión">
               <IconoSalir />
@@ -81,9 +64,6 @@ export default function Marco() {
         </div>
       </header>
 
-      <div className="border-b border-dagrd-navy/10 bg-dagrd-amarillo/25">
-        <div className="mx-auto max-w-6xl px-4 py-2 sm:px-6"><SelectorRol /></div>
-      </div>
 
       <main id="contenido" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <Outlet />
