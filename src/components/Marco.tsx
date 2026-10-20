@@ -35,7 +35,7 @@ export default function Marco() {
   const { salir, perfil, esGestor, esInstructor } = useEstado()
   const NAV = esGestor || esInstructor ? [...NAV_BASE, { to: '/control', texto: 'Control', Icono: IconoCalendario }] : NAV_BASE
   const { pathname } = useLocation()
-  useEffect(() => window.scrollTo(0, 0), [pathname])
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
 
   return (
     <div className="min-h-dvh pb-24 md:pb-0">
