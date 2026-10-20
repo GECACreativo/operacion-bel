@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, urlRetorno } from './lib/supabase'
 import { cargarCompanias, cargarModulos, cargarPerfil, cargarRol, cargarRuta, cargarSesiones, type Perfil } from './data/api'
@@ -55,24 +55,34 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       const p = await cargarPerfil(s.user.id)
       const [r, ruta, ses, comp] = await Promise.all([cargarRol(p.rol_bel_id), cargarRuta(), cargarSesiones(p.id), cargarCompanias()])
       setPerfil(p); setRol(r); setProgreso(ruta); setSesiones(ses); setCompanias(comp)
-      setFase('lista')
+      if (!enRecuperacion.current) setFase('lista')
     } catch (e) {
       setError(traducir((e as Error).message))
       setFase('error')
     }
   }, [])
 
+  // Usuario cuyos datos ya están cargados. Evita recargas al volver a la pestaña.
+  const usuarioCargado = useRef<string | null>(null)
+  const enRecuperacion = useRef(false)
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSesion(data.session)
-      if (data.session) cargarTodo(data.session)
-      else setFase('sin_sesion')
-    })
+    // Importante: no llamar a Supabase directamente dentro de onAuthStateChange (puede bloquearse).
+    // Por eso las cargas se difieren con setTimeout.
     const { data } = supabase.auth.onAuthStateChange((evento, s) => {
       setSesion(s)
-      if (evento === 'PASSWORD_RECOVERY') setFase('recuperacion')
-      else if (evento === 'SIGNED_IN' && s) { setFase('cargando'); cargarTodo(s) }
-      else if (evento === 'SIGNED_OUT') { setFase('sin_sesion'); setPerfil(null); setProgreso([]) }
+      if (evento === 'PASSWORD_RECOVERY') { enRecuperacion.current = true; setFase('recuperacion'); return }
+      if (evento === 'SIGNED_OUT' || !s) {
+        usuarioCargado.current = null
+        setFase('sin_sesion'); setPerfil(null); setProgreso([])
+        return
+      }
+      // INITIAL_SESSION o SIGNED_IN: cargar solo si es otro usuario (al volver a la pestaña llega el mismo)
+      if ((evento === 'INITIAL_SESSION' || evento === 'SIGNED_IN') && usuarioCargado.current !== s.user.id) {
+        usuarioCargado.current = s.user.id
+        setFase('cargando')
+        setTimeout(() => cargarTodo(s), 0)
+      }
     })
     return () => data.subscription.unsubscribe()
   }, [cargarTodo])
@@ -95,6 +105,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       cambiarClave: async (clave) => {
         const { error } = await supabase.auth.updateUser({ password: clave })
         if (error) return traducir(error.message)
+        enRecuperacion.current = false
         if (sesion) { setFase('cargando'); await cargarTodo(sesion) }
         return null
       },
