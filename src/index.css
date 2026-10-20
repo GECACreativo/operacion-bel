@@ -1,0 +1,30 @@
+@import '@fontsource/metropolis/400.css';
+@import '@fontsource/metropolis/500.css';
+@import '@fontsource/metropolis/700.css';
+@import '@fontsource/metropolis/800.css';
+@import '@fontsource/metropolis/900.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-[#efefed] text-dagrd-navy font-sans antialiased; }
+  :focus-visible { @apply outline outline-[3px] outline-offset-2 outline-dagrd-azul; }
+}
+
+@layer components {
+  .tarjeta { @apply bg-white rounded-3xl shadow-[0_1px_2px_rgba(31,43,63,.06),0_8px_24px_-12px_rgba(31,43,63,.18)]; }
+  .boton { @apply disabled:cursor-not-allowed disabled:bg-dagrd-gris/60 disabled:text-dagrd-navy/50 inline-flex items-center justify-center gap-2 rounded-pill px-5 min-h-[44px] font-bold text-sm transition-colors; }
+  .boton-primario { @apply boton bg-dagrd-amarillo text-dagrd-navy hover:bg-[#f2cf00]; }
+  .boton-secundario { @apply boton bg-dagrd-navy text-white hover:bg-dagrd-petroleo; }
+  .boton-fantasma { @apply boton border border-dagrd-navy/20 text-dagrd-navy hover:bg-dagrd-navy/5; }
+  .etiqueta { @apply text-[11px] font-bold uppercase tracking-[.08em]; }
+  /* Sello institucional, en el estilo de «Anticipar es actuar» */
+  .sello { @apply inline-block px-3 py-1.5 font-black uppercase leading-[.95] tracking-tight shadow-[0_6px_10px_-6px_rgba(0,0,0,.45)]; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
