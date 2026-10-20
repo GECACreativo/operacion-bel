@@ -9,6 +9,8 @@ import MiOperacion from './pages/MiOperacion'
 import Ruta from './pages/Ruta'
 import Mision from './pages/Mision'
 import Insignias from './pages/Insignias'
+import Sesiones from './pages/control/Sesiones'
+import SesionDetalle from './pages/control/SesionDetalle'
 
 // HashRouter: compatible con GitHub Pages sin configuración adicional del servidor.
 function Pantalla({ children }: { children: React.ReactNode }) {
@@ -16,7 +18,7 @@ function Pantalla({ children }: { children: React.ReactNode }) {
 }
 
 function Rutas() {
-  const { fase, error, recargar, salir } = useEstado()
+  const { fase, error, recargar, salir, esGestor, esInstructor } = useEstado()
   if (fase === 'cargando') return <Pantalla><p role="status" className="text-lg font-bold">Preparando tu operación…</p></Pantalla>
   if (fase === 'sin_sesion') return <Ingreso />
   if (fase === 'recuperacion') return <Ingreso recuperacion />
@@ -39,6 +41,8 @@ function Rutas() {
         <Route path="ruta" element={<Ruta />} />
         <Route path="mision/:codigo" element={<Mision />} />
         <Route path="insignias" element={<Insignias />} />
+        {(esGestor || esInstructor) && <Route path="control" element={<Sesiones />} />}
+        {(esGestor || esInstructor) && <Route path="control/sesion/:id" element={<SesionDetalle />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

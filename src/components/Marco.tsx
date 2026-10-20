@@ -1,12 +1,12 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useEstado } from '../estado'
-import { IconoCasa, IconoInsignia, IconoRuta, IconoSalir } from './Iconos'
+import { IconoCalendario, IconoCasa, IconoInsignia, IconoRuta, IconoSalir } from './Iconos'
 import logoBomberos from '../assets/logo-bomberos.png'
 import logoDagrd from '../assets/logo-dagrd.png'
 import logoAlcaldia from '../assets/logo-alcaldia.png'
 
-const NAV = [
+const NAV_BASE = [
   { to: '/', texto: 'Mi Operación', Icono: IconoCasa },
   { to: '/ruta', texto: 'Mi ruta', Icono: IconoRuta },
   { to: '/insignias', texto: 'Insignias', Icono: IconoInsignia },
@@ -32,7 +32,8 @@ export function Logos({ className = 'h-10' }: { className?: string }) {
 }
 
 export default function Marco() {
-  const { salir, perfil } = useEstado()
+  const { salir, perfil, esGestor, esInstructor } = useEstado()
+  const NAV = esGestor || esInstructor ? [...NAV_BASE, { to: '/control', texto: 'Control', Icono: IconoCalendario }] : NAV_BASE
   const { pathname } = useLocation()
   useEffect(() => window.scrollTo(0, 0), [pathname])
 
@@ -46,7 +47,7 @@ export default function Marco() {
             <ul className="flex gap-1">
               {NAV.map(({ to, texto, Icono }) => (
                 <li key={to}>
-                  <NavLink to={to} end className={({ isActive }) =>
+                  <NavLink to={to} end={to !== '/control'} className={({ isActive }) =>
                     `flex min-h-[44px] items-center gap-2 rounded-pill px-4 text-sm font-bold transition-colors ${isActive ? 'bg-dagrd-amarillo text-dagrd-navy' : 'text-white/85 hover:bg-white/10'}`}>
                     <Icono /> {texto}
                   </NavLink>
@@ -79,10 +80,10 @@ export default function Marco() {
       {/* Barra inferior en celular */}
       <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-dagrd-fondo md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <ul className="grid grid-cols-3">
+        <ul className={`grid ${NAV.length > 3 ? "grid-cols-4" : "grid-cols-3"}`}>
           {NAV.map(({ to, texto, Icono }) => (
             <li key={to}>
-              <NavLink to={to} end className={({ isActive }) =>
+              <NavLink to={to} end={to !== '/control'} className={({ isActive }) =>
                 `flex min-h-[60px] flex-col items-center justify-center gap-1 text-[11px] font-bold ${isActive ? 'text-dagrd-amarillo' : 'text-white/70'}`}>
                 {({ isActive }) => (
                   <>
