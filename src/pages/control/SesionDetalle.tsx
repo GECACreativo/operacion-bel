@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  candidatos, cambiarEstadoSesion, historialSesion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, reprogramarSesion, retirar,
+  candidatos, cambiarEstadoSesion, habilitarActividades, historialSesion, quitarHabilitacion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, reprogramarSesion, retirar,
   suspenderSesion, type CambioEstado, type Inscrito, type SesionControl,
 } from '../../data/control'
 import { MODULOS } from '../../data/modulos'
@@ -84,10 +84,24 @@ function FilaAsistencia({ i, sesion, alCambiar, puedeRetirar }: {
   const [corrigiendo, setCorrigiendo] = useState<boolean | null>(null) // valor nuevo pendiente de motivo
   const [motivo, setMotivo] = useState('')
   const [evaluando, setEvaluando] = useState(false)
+  const [habilitando, setHabilitando] = useState(false)
+  const [motivoHab, setMotivoHab] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const esPropia = i.perfil_id === perfil?.id
   const bloqueada = sesion.estado === 'cancelada' || (esPropia && !esGestor)
+  const asistenciaCuenta = i.presente === true && (sesion.estado === 'programada' || sesion.estado === 'realizada')
+
+  const cambiarHabilitacion = async (e: FormEvent) => {
+    e.preventDefault(); if (!motivoHab.trim()) return
+    setOcupado(true); setError(null)
+    try {
+      if (i.habilitada) await quitarHabilitacion(i.perfil_id, sesion.modulo_codigo, motivoHab.trim())
+      else await habilitarActividades(i.perfil_id, sesion.modulo_codigo, motivoHab.trim())
+      setHabilitando(false); setMotivoHab(''); alCambiar()
+    } catch (err) { setError((err as Error).message) }
+    setOcupado(false)
+  }
 
   const marcar = async (presente: boolean, m?: string) => {
     if (i.presente !== null && i.presente !== presente && !m) { setCorrigiendo(presente); return }
@@ -118,18 +132,41 @@ function FilaAsistencia({ i, sesion, alCambiar, puedeRetirar }: {
           </button>
           <button disabled={ocupado || bloqueada} aria-pressed={i.presente === false} onClick={() => marcar(false)}
             className={btn(i.presente === false, 'bg-orange-100 text-orange-800')}>No asistió</button>
-          {!esPropia && (sesion.estado === 'programada' || sesion.estado === 'realizada') && i.presente === true && (
+          {!esPropia && (asistenciaCuenta || i.habilitada) && (
             <button onClick={() => setEvaluando(!evaluando)} aria-expanded={evaluando}
               className="min-h-[40px] rounded-pill border border-dagrd-navy/20 px-4 text-sm font-bold hover:bg-[#efefed]">
               {evaluando ? 'Cerrar reto' : 'Evaluar reto'}
             </button>
           )}
-          {puedeRetirar && i.presente === null && (
+          {esGestor && !asistenciaCuenta && (
+            <button onClick={() => setHabilitando(!habilitando)} aria-expanded={habilitando}
+              className={`min-h-[40px] rounded-pill px-4 text-sm font-bold ${i.habilitada ? 'border border-dagrd-navy/20 hover:bg-[#efefed]' : 'bg-dagrd-amarillo text-dagrd-navy hover:bg-dagrd-amarillo/80'}`}>
+              {i.habilitada ? 'Quitar habilitación' : 'Habilitar actividades'}
+            </button>
+          )}
+          {puedeRetirar && i.presente === null && !i.habilitada && (
             <button disabled={ocupado} onClick={async () => { await retirar(sesion.id, i.perfil_id); alCambiar() }}
               className="min-h-[40px] rounded-pill px-3 text-xs font-bold text-dagrd-navy/60 underline-offset-2 hover:underline">Retirar</button>
           )}
         </div>
       </div>
+      {i.habilitada && <p className="mt-1 text-xs font-bold text-dagrd-azul">Actividades habilitadas manualmente por administración.</p>}
+      {habilitando && (
+        <form onSubmit={cambiarHabilitacion} className="mt-3 rounded-2xl bg-dagrd-amarillo/20 p-3">
+          <label className="block text-sm"><span className="font-bold">{i.habilitada ? 'Motivo para quitar la habilitación' : 'Motivo de la habilitación manual'}</span>
+            <span className="block text-xs text-dagrd-navy/70">
+              {i.habilitada ? 'Si no tiene asistencia válida, la misión vuelve a quedar sin habilitar.'
+                : 'Permite responder el cuestionario y evaluar el reto de esta misión sin asistencia válida. No otorga la XP de asistencia. Queda en la auditoría.'}
+            </span>
+            <input autoFocus required value={motivoHab} onChange={(e) => setMotivoHab(e.target.value)}
+              className="mt-2 block min-h-[40px] w-full rounded-xl border border-dagrd-navy/20 bg-white px-3" placeholder="Ej.: sesión suspendida por emergencia; completó los temas con el instructor" />
+          </label>
+          <div className="mt-2 flex gap-2">
+            <button type="submit" disabled={ocupado} className="boton-secundario min-h-[36px]">Confirmar</button>
+            <button type="button" onClick={() => { setHabilitando(false); setMotivoHab('') }} className="boton-fantasma min-h-[36px]">Cancelar</button>
+          </div>
+        </form>
+      )}
       {esPropia && !esGestor && <p className="mt-1 text-xs text-dagrd-navy/60">Tu propia asistencia la registra otro instructor.</p>}
       {corrigiendo !== null && (
         <form onSubmit={(e) => { e.preventDefault(); if (motivo.trim()) marcar(corrigiendo, motivo.trim()) }}
@@ -335,7 +372,7 @@ export default function SesionDetalle() {
   const [version, setVersion] = useState(0)
 
   const cargar = useCallback(async () => {
-    try { setSesion(await obtenerSesion(id)); setInscritos(await listarInscritos(id)); setVersion((v) => v + 1) } catch (e) { setError((e as Error).message) }
+    try { const s = await obtenerSesion(id); setSesion(s); setInscritos(await listarInscritos(id, s.modulo_codigo)); setVersion((v) => v + 1) } catch (e) { setError((e as Error).message) }
   }, [id])
   useEffect(() => { setPanel(null); setEditando(false) }, [id])
   useEffect(() => { cargar() }, [cargar])

@@ -46,8 +46,10 @@ export async function cargarRol(id: string | null): Promise<Rol | null> {
   return { ...r, ruta: Object.fromEntries(filas.map((f) => [f.modulo_codigo, { hace: f.hace, participacion: f.participacion.split('') }])) }
 }
 
-export async function cargarRuta(): Promise<ProgresoMision[]> {
+export async function cargarRuta(perfilId: string): Promise<ProgresoMision[]> {
   const filas = chequear(await supabase.rpc('ruta_de')) as any[]
+  const habs = chequear(await supabase.from('habilitaciones').select('modulo_codigo, motivo, fecha')
+    .eq('perfil_id', perfilId).is('revocada_en', null)) as { modulo_codigo: string; motivo: string; fecha: string }[]
   const reglas = chequear(await supabase.from('reglas_xp').select('tipo, modulo_codigo, xp').eq('activo', true)) as any[]
   const xpDe = (tipo: string, mod: string) =>
     reglas.find((r) => r.tipo === tipo && r.modulo_codigo === mod)?.xp ?? reglas.find((r) => r.tipo === tipo && !r.modulo_codigo)?.xp ?? 0
@@ -61,7 +63,8 @@ export async function cargarRuta(): Promise<ProgresoMision[]> {
       { tipo: 'cuestionario', etiqueta: ri ? 'Explica cómo tu parte conecta con el flujo' : 'Cuestionario aprobado', xp: xpDe('cuestionario', f.codigo), estado: f.cuestionario ? 'validada' : 'pendiente' },
       { tipo: 'autonomia', etiqueta: ri ? 'Completa tu parte sin acompañamiento' : 'Ejecución autónoma validada', xp: xpDe('autonomia', f.codigo), estado: f.autonomia ? 'validada' : 'pendiente' },
     ]
-    return { codigo: f.codigo, estado: f.estado as EstadoMision, evidencias, xp: f.xp, xpMax: f.xp_max }
+    const h = habs.find((x) => x.modulo_codigo === f.codigo)
+    return { codigo: f.codigo, estado: f.estado as EstadoMision, evidencias, xp: f.xp, xpMax: f.xp_max, habilitacion: h ? { motivo: h.motivo, fecha: h.fecha } : null }
   })
 }
 

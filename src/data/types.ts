@@ -57,6 +57,8 @@ export interface ProgresoMision {
   /** XP neta y máxima calculadas en el servidor */
   xp?: number
   xpMax?: number
+  /** Habilitación manual de actividades por administración (sin asistencia válida) */
+  habilitacion?: { motivo: string; fecha: string } | null
 }
 
 export interface Sesion {

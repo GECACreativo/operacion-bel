@@ -128,7 +128,7 @@ export default function Mision() {
 
   const enRol = rol?.ruta[codigo]
   const aprobada = p.estado === 'aprobada' || p.estado === 'convalidada'
-  const conAsistencia = p.evidencias.find((e) => e.tipo === 'asistencia')?.estado === 'validada'
+  const conAsistencia = p.evidencias.find((e) => e.tipo === 'asistencia')?.estado === 'validada' || !!p.habilitacion
   const paso = pasoActual(p.evidencias, aprobada)
   const sesion = sesiones.find((s) => s.codigo === codigo)
 
@@ -245,6 +245,11 @@ export default function Mision() {
                 </li>
               ))}
             </ul>
+            {p.habilitacion && (
+              <p className="mt-4 rounded-2xl bg-dagrd-azul/10 p-3 text-xs leading-relaxed text-dagrd-petroleo">
+                <span className="font-bold">Actividades habilitadas por administración.</span> {p.habilitacion.motivo}
+              </p>
+            )}
             <p className="mt-4 rounded-2xl bg-[#efefed] p-3 text-xs leading-relaxed">
               La misión se aprueba cuando cumples todas las evidencias obligatorias y los criterios críticos. La asistencia sola no la aprueba.
             </p>
