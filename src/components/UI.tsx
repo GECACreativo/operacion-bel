@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import type { EstadoMision, Evidencia } from '../data/types'
+import Insignia from './Insignia'
+import { MODULOS } from '../data/modulos'
 import { IconoCandado, IconoCheck, IconoReloj } from './Iconos'
 
 export const ESTADO_INFO: Record<EstadoMision, { texto: string; clase: string }> = {
@@ -53,15 +55,10 @@ export function IconoEvidencia({ estado }: { estado: Evidencia['estado'] }) {
   return <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-dagrd-gris text-dagrd-navy/40"><IconoCandado className="h-3.5 w-3.5" /></span>
 }
 
-/** Medallón de insignia. */
-export function Medalla({ codigo, obtenida, tam = 'md', oscuro = false }: { codigo: string; obtenida: boolean; tam?: 'sm' | 'md' | 'lg'; oscuro?: boolean }) {
-  const t = tam === 'lg' ? 'h-20 w-20 text-lg' : tam === 'sm' ? 'h-11 w-11 text-[11px]' : 'h-14 w-14 text-sm'
-  return (
-    <span className={`relative grid ${t} shrink-0 place-items-center rounded-full font-black ${obtenida ? 'bg-dagrd-amarillo text-dagrd-navy ring-4 ring-dagrd-amarillo/30' : oscuro ? 'bg-white/10 text-white/80 ring-4 ring-white/10' : 'bg-dagrd-gris/50 text-dagrd-navy/40 ring-4 ring-transparent'}`}>
-      <span className={`absolute inset-[4px] rounded-full border-2 ${obtenida ? 'border-dagrd-navy/25' : oscuro ? 'border-white/25' : 'border-dagrd-navy/10'} border-dashed`} aria-hidden />
-      {codigo}
-    </span>
-  )
+/** Insignia de la misión (diseño propio por módulo; ver components/Insignia.tsx). */
+export function Medalla({ codigo, obtenida, tam = 'md', oscuro = false }: { codigo: string; obtenida: boolean; tam?: 'sm' | 'md' | 'lg' | 'xl'; oscuro?: boolean }) {
+  const px = { sm: 44, md: 60, lg: 88, xl: 112 }[tam]
+  return <Insignia codigo={codigo} obtenida={obtenida} tam={px} oscuro={oscuro} titulo={MODULOS[codigo]?.insignia} />
 }
 
 export function AvisoPrototipo() {

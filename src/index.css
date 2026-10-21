@@ -28,3 +28,8 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Insignias: pequeño gesto al pasar el cursor */
+.insignia-obtenida { transition: transform .25s ease; }
+.insignia-obtenida:hover { transform: rotate(-4deg) scale(1.06); }
+@media (prefers-reduced-motion: reduce) { .insignia-obtenida, .insignia-obtenida:hover { transition: none; transform: none; } }

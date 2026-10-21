@@ -5,7 +5,8 @@ import { Medalla } from '../components/UI'
 
 export default function Insignias() {
   const { progreso, nivel } = useEstado()
-  const obtenidas = progreso.filter((p) => p.estado === 'aprobada').length
+  const logro = (e: string) => e === 'aprobada' || e === 'convalidada'
+  const obtenidas = progreso.filter((p) => logro(p.estado)).length
 
   return (
     <div className="space-y-8">
@@ -31,14 +32,20 @@ export default function Insignias() {
 
       <section aria-labelledby="t-lista">
         <h2 id="t-lista" className="text-xl font-black">Insignias de tu ruta</h2>
+        <p className="mt-1 text-sm text-dagrd-navy/70">Cada insignia lleva el ícono del módulo de BEL que dominaste. La forma indica su grupo en el menú de BEL.</p>
         <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {progreso.map((p) => {
-            const ok = p.estado === 'aprobada'
+            const ok = logro(p.estado)
+            const m = MODULOS[p.codigo]
             return (
-              <li key={p.codigo} className={`tarjeta flex flex-col items-center p-5 text-center ${ok ? '' : 'opacity-70'}`}>
-                <Medalla codigo={p.codigo} obtenida={ok} />
-                <p className="mt-3 text-sm font-black leading-tight">{MODULOS[p.codigo].insignia}</p>
-                <p className="mt-1 text-xs text-dagrd-navy/60">{ok ? 'Obtenida' : 'Pendiente'}</p>
+              <li key={p.codigo} className={`tarjeta relative flex flex-col items-center overflow-hidden p-5 text-center ${ok ? 'ring-2 ring-dagrd-amarillo' : ''}`}>
+                {ok && <span aria-hidden className="absolute -right-8 -top-8 h-20 w-20 rounded-full bg-dagrd-amarillo/25" />}
+                <Medalla codigo={p.codigo} obtenida={ok} tam="xl" />
+                <p className={`mt-3 text-sm font-black leading-tight ${ok ? '' : 'text-dagrd-navy/70'}`}>{m.insignia}</p>
+                <p className="mt-1 text-[11px] leading-snug text-dagrd-navy/60">{m.ubicacion}</p>
+                <p className={`mt-2 rounded-pill px-2.5 py-0.5 text-[11px] font-bold ${ok ? 'bg-dagrd-petroleo text-white' : 'bg-[#efefed] text-dagrd-navy/60'}`}>
+                  {p.estado === 'convalidada' ? 'Convalidada' : ok ? 'Obtenida' : 'Pendiente'}
+                </p>
               </li>
             )
           })}

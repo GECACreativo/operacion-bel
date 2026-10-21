@@ -59,7 +59,7 @@ export default function Ruta() {
             <li key={p.codigo} className={`relative grid grid-cols-[56px_1fr] items-start gap-4 md:grid-cols-[1fr_56px_1fr] ${i > 0 ? "md:-mt-20" : ""}`}>
               <div className="hidden md:order-1 md:block">{!derecha && tarjeta}</div>
               <div className="relative z-10 flex justify-center pt-3 md:order-2">
-                <Medalla codigo={p.codigo} obtenida={p.estado === 'aprobada'} />
+                <Medalla codigo={p.codigo} obtenida={p.estado === 'aprobada' || p.estado === 'convalidada'} />
               </div>
               <div className="md:hidden">{tarjeta}</div>
               <div className="hidden md:order-3 md:block">{derecha && tarjeta}</div>

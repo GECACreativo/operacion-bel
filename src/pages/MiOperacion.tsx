@@ -119,8 +119,7 @@ export default function MiOperacion() {
           <ul className="mt-4 flex flex-wrap gap-3">
             {progreso.map((p) => (
               <li key={p.codigo} title={MODULOS[p.codigo].insignia}>
-                <Medalla codigo={p.codigo} obtenida={p.estado === 'aprobada'} tam="sm" />
-                <span className="sr-only">{MODULOS[p.codigo].insignia}: {p.estado === 'aprobada' ? 'obtenida' : 'pendiente'}</span>
+                <Medalla codigo={p.codigo} obtenida={p.estado === 'aprobada' || p.estado === 'convalidada'} tam="sm" />
               </li>
             ))}
           </ul>
