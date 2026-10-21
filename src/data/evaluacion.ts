@@ -23,7 +23,7 @@ const mezclar = <T,>(a: T[]) => { const b = [...a]; for (let i = b.length - 1; i
 
 export async function cargarCuestionario(modulo: string, perfilId: string): Promise<Cuestionario | null> {
   const c = ok(await supabase.from('cuestionarios')
-    .select('id, titulo, descripcion, umbral, max_intentos, validado, preguntas(id, orden, enunciado, opciones(id, orden, texto))')
+    .select('id, titulo, descripcion, umbral, max_intentos, validado, preguntas(id, orden, enunciado, opciones!opciones_pregunta_id_fkey(id, orden, texto))')
     .eq('modulo_codigo', modulo).eq('activo', true).order('version', { ascending: false }).limit(1)) as any[]
   if (!c.length) return null
   const intentos = ok(await supabase.from('intentos').select('puntaje, aprobado, enviado_en')
