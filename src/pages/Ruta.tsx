@@ -46,11 +46,11 @@ export default function Ruta() {
                 <span>{xpDe(p)}/{xpMaxDe(p)} XP</span>
               </div>
               {bloqueada ? (
-                <p className="mt-3 flex items-center gap-2 text-xs text-dagrd-navy/60"><IconoCandado className="h-4 w-4" />Se desbloquea al aprobar la misión anterior.</p>
+                <p className="mt-3 flex items-center gap-2 text-xs text-dagrd-navy/60"><IconoCandado className="h-4 w-4" />Se habilita al aprobar la misión anterior o cuando se registre tu asistencia a su sesión.</p>
               ) : (
                 <Link to={`/mision/${p.codigo}`} className="mt-4 inline-flex min-h-[44px] items-center font-bold text-dagrd-azul hover:underline"
                   aria-label={`Ver misión ${p.codigo}: ${m.mision}`}>
-                  {p.estado === 'aprobada' ? 'Ver resultado' : 'Ver misión'} →
+                  {p.estado === 'aprobada' || p.estado === 'convalidada' ? 'Ver resultado' : 'Ver misión'} →
                 </Link>
               )}
             </div>

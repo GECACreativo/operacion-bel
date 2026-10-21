@@ -62,3 +62,16 @@ export async function evaluarReto(perfilId: string, modulo: string, resultados: 
     p_perfil: perfilId, p_modulo: modulo, p_resultados: resultados, p_autonomo: autonomo, p_observaciones: observaciones || null,
   })) as { aprobado: boolean; cumplidos: number; total: number; critico_fallido: boolean }
 }
+
+export interface ResultadosMision {
+  asistencias: { inicio: string; modalidad: string; presente: boolean; estado_sesion: string; cuenta: boolean }[]
+  retos: { fecha: string; aprobado: boolean; autonomo: boolean; observaciones: string | null; evaluador: string | null
+           criterios: { descripcion: string; critico: boolean; cumple: boolean }[] }[]
+  intentos: { fecha: string; puntaje: number; aprobado: boolean }[]
+  ultimo_intento: { enunciado: string; respuesta: string | null; correcta: boolean; retroalimentacion: string | null }[]
+}
+
+/** Resultados propios en una misión: asistencia, reto práctico, autonomía y cuestionario. */
+export async function resultadosMision(modulo: string): Promise<ResultadosMision> {
+  return ok(await supabase.rpc('resultados_mision', { p_modulo: modulo })) as ResultadosMision
+}

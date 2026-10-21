@@ -23,7 +23,12 @@ export interface SesionControl {
   lugar: string | null
   enlace: string | null
   cupo: number | null
-  estado: 'programada' | 'realizada' | 'cancelada'
+  estado: 'programada' | 'realizada' | 'suspendida' | 'cancelada'
+  temas_abordados: string | null
+  temas_pendientes: string | null
+  observaciones_estado: string | null
+  sesion_origen_id: string | null
+  reprogramada_en_id: string | null
   instructor_id: string | null
   instructor: string | null
   inscritos: number
@@ -38,7 +43,7 @@ export interface Inscrito {
   presente: boolean | null // null = sin registrar
 }
 
-const CAMPOS = 'id, modulo_codigo, modalidad, inicio, fin, lugar, enlace, cupo, estado, instructor_id, instructor:instructor_id(nombre), inscripciones(count)'
+const CAMPOS = 'id, modulo_codigo, modalidad, inicio, fin, lugar, enlace, cupo, estado, temas_abordados, temas_pendientes, observaciones_estado, sesion_origen_id, reprogramada_en_id, instructor_id, instructor:instructor_id(nombre), inscripciones(count)'
 const mapear = (s: any): SesionControl => ({ ...s, instructor: s.instructor?.nombre ?? null, inscritos: s.inscripciones?.[0]?.count ?? 0 })
 
 export async function listarSesiones(soloMias: string | null): Promise<SesionControl[]> {
@@ -59,8 +64,23 @@ export async function guardarSesion(datos: NuevaSesion, id?: string) {
   return (ok(await q) as { id: string }).id
 }
 
-export async function cambiarEstadoSesion(id: string, estado: SesionControl['estado']) {
-  ok(await supabase.from('sesiones').update({ estado }).eq('id', id))
+export async function cambiarEstadoSesion(id: string, estado: 'programada' | 'realizada' | 'cancelada', motivo?: string) {
+  ok(await supabase.rpc('cambiar_estado_sesion', { p_sesion: id, p_estado: estado, p_motivo: motivo ?? null }))
+}
+
+/** Suspender (p. ej. por atención de una emergencia): exige temas abordados y pendientes. */
+export async function suspenderSesion(id: string, abordados: string, pendientes: string, observaciones: string) {
+  ok(await supabase.rpc('suspender_sesion', { p_sesion: id, p_abordados: abordados, p_pendientes: pendientes, p_observaciones: observaciones || null }))
+}
+
+/** Crea una nueva sesión enlazada a la suspendida/cancelada y traslada las inscripciones. Devuelve el id nuevo. */
+export async function reprogramarSesion(id: string, inicio: string, fin: string, lugar: string, enlace: string) {
+  return ok(await supabase.rpc('reprogramar_sesion', { p_sesion: id, p_inicio: inicio, p_fin: fin, p_lugar: lugar || null, p_enlace: enlace || null })) as string
+}
+
+export interface CambioEstado { estado_anterior: string | null; estado_nuevo: string; motivo: string | null; actor: string | null; fecha: string }
+export async function historialSesion(id: string): Promise<CambioEstado[]> {
+  return ok(await supabase.rpc('historial_sesion', { p_sesion: id })) as CambioEstado[]
 }
 
 export async function listarInstructores(): Promise<{ id: string; nombre: string }[]> {

@@ -20,7 +20,8 @@ export default function Cuestionario() {
 
   const volver = <Link to={`/mision/${codigo}`} className="inline-flex min-h-[44px] items-center gap-2 text-sm font-bold text-dagrd-navy/70 hover:text-dagrd-navy"><IconoAtras className="h-4 w-4" /> Volver a la misión</Link>
 
-  if (!mision || mision.estado === 'bloqueada') return <div className="space-y-4">{volver}<p className="tarjeta p-6">Esta misión todavía no está disponible para ti.</p></div>
+  const conAsistencia = mision?.evidencias.find((e) => e.tipo === 'asistencia')?.estado === 'validada'
+  if (!mision || !conAsistencia) return <div className="space-y-4">{volver}<p className="tarjeta p-6">El cuestionario se habilita cuando tu instructor registra tu asistencia a la sesión de esta misión.</p></div>
   if (error && !c) return <div className="space-y-4">{volver}<p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{error}</p></div>
   if (c === undefined) return <p role="status">Cargando cuestionario…</p>
   if (c === null) return <div className="space-y-4">{volver}<p className="tarjeta p-6">Esta misión aún no tiene cuestionario.</p></div>

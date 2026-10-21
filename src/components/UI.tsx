@@ -4,7 +4,7 @@ import { IconoCandado, IconoCheck, IconoReloj } from './Iconos'
 
 export const ESTADO_INFO: Record<EstadoMision, { texto: string; clase: string }> = {
   bloqueada: { texto: 'Bloqueada', clase: 'bg-dagrd-gris/60 text-dagrd-navy/70' },
-  disponible: { texto: 'Disponible', clase: 'bg-dagrd-azul/10 text-dagrd-azul' },
+  disponible: { texto: 'Pendiente de asistencia', clase: 'bg-dagrd-azul/10 text-dagrd-azul' },
   en_curso: { texto: 'En curso', clase: 'bg-dagrd-amarillo text-dagrd-navy' },
   pendiente_validacion: { texto: 'Pendiente de validación', clase: 'bg-dagrd-amarillo/40 text-dagrd-navy' },
   requiere_refuerzo: { texto: 'Requiere refuerzo', clase: 'bg-orange-100 text-orange-800' },

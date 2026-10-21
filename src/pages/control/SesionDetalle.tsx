@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  candidatos, cambiarEstadoSesion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, retirar,
-  type Inscrito, type SesionControl,
+  candidatos, cambiarEstadoSesion, historialSesion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, reprogramarSesion, retirar,
+  suspenderSesion, type CambioEstado, type Inscrito, type SesionControl,
 } from '../../data/control'
 import { MODULOS } from '../../data/modulos'
 import { useEstado } from '../../estado'
 import { fmtFecha } from '../MiOperacion'
-import { FormularioSesion } from './Sesiones'
+import { FormularioSesion, aLocal } from './Sesiones'
 import { IconoAtras, IconoCheck } from '../../components/Iconos'
 import { criteriosPara, evaluarReto, ultimaEvaluacion, type Criterio, type EvaluacionPrevia } from '../../data/evaluacion'
 
@@ -118,7 +118,7 @@ function FilaAsistencia({ i, sesion, alCambiar, puedeRetirar }: {
           </button>
           <button disabled={ocupado || bloqueada} aria-pressed={i.presente === false} onClick={() => marcar(false)}
             className={btn(i.presente === false, 'bg-orange-100 text-orange-800')}>No asistió</button>
-          {!esPropia && sesion.estado !== 'cancelada' && (
+          {!esPropia && (sesion.estado === 'programada' || sesion.estado === 'realizada') && i.presente === true && (
             <button onClick={() => setEvaluando(!evaluando)} aria-expanded={evaluando}
               className="min-h-[40px] rounded-pill border border-dagrd-navy/20 px-4 text-sm font-bold hover:bg-[#efefed]">
               {evaluando ? 'Cerrar reto' : 'Evaluar reto'}
@@ -199,6 +199,131 @@ function Inscribir({ sesion, inscritos, alInscribir }: { sesion: SesionControl; 
   )
 }
 
+const campo = 'mt-1 block min-h-[44px] w-full rounded-xl border border-dagrd-navy/20 bg-white px-3 text-sm'
+const ETIQUETA_ESTADO: Record<string, string> = { programada: 'Programada', realizada: 'Realizada', suspendida: 'Suspendida', cancelada: 'Cancelada' }
+
+function Suspender({ sesion, alTerminar, alCancelar }: { sesion: SesionControl; alTerminar: () => void; alCancelar: () => void }) {
+  const [f, setF] = useState({ abordados: '', pendientes: '', obs: '' })
+  const [error, setError] = useState<string | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  const enviar = async (e: FormEvent) => {
+    e.preventDefault(); setError(null)
+    if (!f.abordados.trim() || !f.pendientes.trim()) return setError('Indica los temas abordados y los temas pendientes.')
+    setGuardando(true)
+    try { await suspenderSesion(sesion.id, f.abordados, f.pendientes, f.obs); alTerminar() } catch (err) { setError((err as Error).message) }
+    setGuardando(false)
+  }
+  return (
+    <form onSubmit={enviar} className="tarjeta border-l-8 border-orange-400 p-6" aria-labelledby="t-suspender">
+      <h2 id="t-suspender" className="text-xl font-black">Suspender la sesión</h2>
+      <p className="mt-1 text-sm text-dagrd-navy/70">
+        Úsalo cuando la formación se interrumpe, por ejemplo para atender una emergencia. La asistencia registrada se conserva,
+        pero no habilita la misión ni otorga XP hasta que se complete en la sesión reprogramada.
+      </p>
+      <div className="mt-4 grid gap-4">
+        <label><span className="text-sm font-bold">Temas abordados *</span>
+          <textarea required rows={3} value={f.abordados} onChange={(e) => setF({ ...f, abordados: e.target.value })} className={`${campo} py-2`} placeholder="Ej.: ingreso a BEL, menú principal" /></label>
+        <label><span className="text-sm font-bold">Temas pendientes *</span>
+          <textarea required rows={3} value={f.pendientes} onChange={(e) => setF({ ...f, pendientes: e.target.value })} className={`${campo} py-2`} placeholder="Ej.: reto práctico de registro de novedades" /></label>
+        <label><span className="text-sm font-bold">Observaciones / motivo</span>
+          <textarea rows={2} value={f.obs} onChange={(e) => setF({ ...f, obs: e.target.value })} className={`${campo} py-2`} placeholder="Ej.: salida a atención de incendio estructural" /></label>
+      </div>
+      {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="submit" disabled={guardando} className="boton-primario">{guardando ? 'Guardando…' : 'Confirmar suspensión'}</button>
+        <button type="button" onClick={alCancelar} className="boton-fantasma">Cancelar</button>
+      </div>
+    </form>
+  )
+}
+
+function Reprogramar({ sesion, alCancelar }: { sesion: SesionControl; alCancelar: () => void }) {
+  const nav = useNavigate()
+  const [f, setF] = useState({ inicio: '', fin: '', lugar: sesion.lugar ?? '', enlace: sesion.enlace ?? '' })
+  const [error, setError] = useState<string | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  const enviar = async (e: FormEvent) => {
+    e.preventDefault(); setError(null)
+    if (!f.inicio || !f.fin) return setError('Indica la nueva fecha y hora de inicio y de fin.')
+    if (new Date(f.fin) <= new Date(f.inicio)) return setError('La hora de fin debe ser posterior a la de inicio.')
+    setGuardando(true)
+    try {
+      const nueva = await reprogramarSesion(sesion.id, new Date(f.inicio).toISOString(), new Date(f.fin).toISOString(), f.lugar.trim(), f.enlace.trim())
+      nav(`/control/sesion/${nueva}`)
+    } catch (err) { setError((err as Error).message) }
+    setGuardando(false)
+  }
+  const ahora = aLocal(new Date().toISOString())
+  return (
+    <form onSubmit={enviar} className="tarjeta border-l-8 border-dagrd-amarillo p-6" aria-labelledby="t-reprogramar">
+      <h2 id="t-reprogramar" className="text-xl font-black">Reprogramar la sesión</h2>
+      <p className="mt-1 text-sm text-dagrd-navy/70">Se crea una nueva sesión de {sesion.modulo_codigo} con las mismas personas inscritas. Esta sesión queda enlazada a la nueva.</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <label><span className="text-sm font-bold">Nuevo inicio *</span>
+          <input type="datetime-local" required min={ahora} value={f.inicio} onChange={(e) => setF({ ...f, inicio: e.target.value })} className={campo} /></label>
+        <label><span className="text-sm font-bold">Nuevo fin *</span>
+          <input type="datetime-local" required min={f.inicio || ahora} value={f.fin} onChange={(e) => setF({ ...f, fin: e.target.value })} className={campo} /></label>
+        <label><span className="text-sm font-bold">Lugar</span>
+          <input value={f.lugar} onChange={(e) => setF({ ...f, lugar: e.target.value })} className={campo} /></label>
+        <label><span className="text-sm font-bold">Enlace</span>
+          <input type="url" value={f.enlace} onChange={(e) => setF({ ...f, enlace: e.target.value })} className={campo} /></label>
+      </div>
+      {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="submit" disabled={guardando} className="boton-primario">{guardando ? 'Creando…' : 'Crear sesión reprogramada'}</button>
+        <button type="button" onClick={alCancelar} className="boton-fantasma">Cancelar</button>
+      </div>
+    </form>
+  )
+}
+
+function Cancelar({ sesion, alTerminar, alCancelar }: { sesion: SesionControl; alTerminar: () => void; alCancelar: () => void }) {
+  const [motivo, setMotivo] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const enviar = async (e: FormEvent) => {
+    e.preventDefault(); setError(null)
+    try { await cambiarEstadoSesion(sesion.id, 'cancelada', motivo.trim()); alTerminar() } catch (err) { setError((err as Error).message) }
+  }
+  return (
+    <form onSubmit={enviar} className="tarjeta p-6" aria-labelledby="t-cancelar">
+      <h2 id="t-cancelar" className="text-xl font-black">Cancelar la sesión</h2>
+      <label className="mt-3 block"><span className="text-sm font-bold">Motivo *</span>
+        <input required value={motivo} onChange={(e) => setMotivo(e.target.value)} className={campo} placeholder="Ej.: no se completó el cupo" /></label>
+      {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="submit" className="boton-primario">Confirmar cancelación</button>
+        <button type="button" onClick={alCancelar} className="boton-fantasma">Volver</button>
+      </div>
+    </form>
+  )
+}
+
+function Historial({ id, version }: { id: string; version: number }) {
+  const [h, setH] = useState<CambioEstado[] | null>(null)
+  useEffect(() => { historialSesion(id).then(setH).catch(() => setH([])) }, [id, version])
+  if (!h?.length) return null
+  return (
+    <section className="tarjeta p-6" aria-labelledby="t-historial">
+      <h2 id="t-historial" className="text-xl font-black">Historial de la sesión</h2>
+      <ol className="mt-3 space-y-3">
+        {h.map((c, k) => (
+          <li key={k} className="flex gap-3 text-sm">
+            <span aria-hidden className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-dagrd-azul" />
+            <span>
+              <span className="font-bold">
+                {c.estado_anterior && c.estado_anterior !== c.estado_nuevo ? `${ETIQUETA_ESTADO[c.estado_anterior] ?? c.estado_anterior} → ` : ''}
+                {ETIQUETA_ESTADO[c.estado_nuevo] ?? c.estado_nuevo}
+              </span>
+              {c.motivo && <span className="block text-dagrd-navy/80">{c.motivo}</span>}
+              <span className="block text-xs text-dagrd-navy/60">{new Date(c.fecha).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}{c.actor ? ` · ${c.actor}` : ''}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
 export default function SesionDetalle() {
   const { id = '' } = useParams()
   const { esGestor, perfil } = useEstado()
@@ -206,10 +331,13 @@ export default function SesionDetalle() {
   const [inscritos, setInscritos] = useState<Inscrito[]>([])
   const [error, setError] = useState<string | null>(null)
   const [editando, setEditando] = useState(false)
+  const [panel, setPanel] = useState<'suspender' | 'reprogramar' | 'cancelar' | null>(null)
+  const [version, setVersion] = useState(0)
 
   const cargar = useCallback(async () => {
-    try { setSesion(await obtenerSesion(id)); setInscritos(await listarInscritos(id)) } catch (e) { setError((e as Error).message) }
+    try { setSesion(await obtenerSesion(id)); setInscritos(await listarInscritos(id)); setVersion((v) => v + 1) } catch (e) { setError((e as Error).message) }
   }, [id])
+  useEffect(() => { setPanel(null); setEditando(false) }, [id])
   useEffect(() => { cargar() }, [cargar])
 
   const resumen = useMemo(() => ({
@@ -223,7 +351,11 @@ export default function SesionDetalle() {
   const m = MODULOS[sesion.modulo_codigo]
   const gestiona = esGestor || sesion.instructor_id === perfil?.id
 
-  const estado = async (e: SesionControl['estado']) => { await cambiarEstadoSesion(sesion.id, e); cargar() }
+  const estado = async (e: 'programada' | 'realizada') => {
+    try { await cambiarEstadoSesion(sesion.id, e); cargar() } catch (err) { setError((err as Error).message) }
+  }
+  const activa = sesion.estado === 'programada' || sesion.estado === 'realizada'
+  const terminar = () => { setPanel(null); cargar() }
 
   return (
     <div className="space-y-6">
@@ -235,22 +367,48 @@ export default function SesionDetalle() {
         <FormularioSesion inicial={sesion} alGuardar={() => { setEditando(false); cargar() }} alCancelar={() => setEditando(false)} />
       ) : (
         <header className="rounded-3xl bg-dagrd-fondo p-6 text-white sm:p-8">
-          <p className="etiqueta text-dagrd-amarillo">{sesion.modulo_codigo} · {m?.nombre} · {sesion.estado}</p>
+          <p className="etiqueta text-dagrd-amarillo">{sesion.modulo_codigo} · {m?.nombre} · {ETIQUETA_ESTADO[sesion.estado]}</p>
           <h1 className="mt-1 text-2xl font-black sm:text-3xl">{m?.mision}</h1>
           <p className="mt-2 text-white/80">{fmtFecha(sesion.inicio)} · {sesion.modalidad}</p>
           <p className="text-white/80">{sesion.lugar ?? ''}{sesion.lugar && sesion.enlace ? ' · ' : ''}
             {sesion.enlace && <a href={sesion.enlace} target="_blank" rel="noreferrer" className="underline">Enlace de conexión</a>}</p>
           <p className="text-white/80">Instructor: {sesion.instructor ?? 'Sin asignar'}</p>
-          {gestiona && sesion.estado !== 'cancelada' && (
+          {sesion.sesion_origen_id && (
+            <p className="mt-2 text-sm text-white/80">Reprogramada desde una <Link to={`/control/sesion/${sesion.sesion_origen_id}`} className="font-bold underline">sesión anterior</Link>.</p>
+          )}
+          {gestiona && (
             <div className="mt-5 flex flex-wrap gap-2">
-              <button onClick={() => setEditando(true)} className="boton border border-white/30 text-white hover:bg-white/10">Editar</button>
+              {activa && <button onClick={() => setEditando(true)} className="boton border border-white/30 text-white hover:bg-white/10">Editar</button>}
               {sesion.estado === 'programada' && <button onClick={() => estado('realizada')} className="boton-primario">Marcar como realizada</button>}
+              {activa && <button onClick={() => setPanel('suspender')} className="boton bg-orange-100 text-orange-900 hover:bg-orange-200">Suspender sesión</button>}
+              {(sesion.estado === 'suspendida' || sesion.estado === 'cancelada') && !sesion.reprogramada_en_id && (
+                <button onClick={() => setPanel('reprogramar')} className="boton-primario">Reprogramar</button>
+              )}
+              {sesion.reprogramada_en_id && (
+                <Link to={`/control/sesion/${sesion.reprogramada_en_id}`} className="boton-primario">Ver sesión reprogramada</Link>
+              )}
               {sesion.estado === 'programada' && resumen.si + resumen.no === 0 && (
-                <button onClick={() => { if (confirm('¿Cancelar esta sesión?')) estado('cancelada') }} className="boton text-white/80 hover:bg-white/10">Cancelar sesión</button>
+                <button onClick={() => setPanel('cancelar')} className="boton text-white/80 hover:bg-white/10">Cancelar sesión</button>
               )}
             </div>
           )}
         </header>
+      )}
+
+      {panel === 'suspender' && <Suspender sesion={sesion} alTerminar={terminar} alCancelar={() => setPanel(null)} />}
+      {panel === 'reprogramar' && <Reprogramar sesion={sesion} alCancelar={() => setPanel(null)} />}
+      {panel === 'cancelar' && <Cancelar sesion={sesion} alTerminar={terminar} alCancelar={() => setPanel(null)} />}
+
+      {(sesion.estado === 'suspendida' || sesion.estado === 'cancelada') && (
+        <section className="tarjeta border-l-8 border-orange-400 p-6" aria-labelledby="t-novedad">
+          <h2 id="t-novedad" className="text-xl font-black">{sesion.estado === 'suspendida' ? 'Sesión suspendida' : 'Sesión cancelada'}</h2>
+          <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+            {sesion.temas_abordados && <div><dt className="etiqueta text-dagrd-azul">Temas abordados</dt><dd className="mt-1 whitespace-pre-line">{sesion.temas_abordados}</dd></div>}
+            {sesion.temas_pendientes && <div><dt className="etiqueta text-dagrd-azul">Temas pendientes</dt><dd className="mt-1 whitespace-pre-line">{sesion.temas_pendientes}</dd></div>}
+            {sesion.observaciones_estado && <div className="sm:col-span-2"><dt className="etiqueta text-dagrd-azul">Observaciones</dt><dd className="mt-1 whitespace-pre-line">{sesion.observaciones_estado}</dd></div>}
+          </dl>
+          <p className="mt-3 text-xs text-dagrd-navy/60">La asistencia de esta sesión queda registrada, pero no habilita la misión ni otorga XP.</p>
+        </section>
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -260,7 +418,7 @@ export default function SesionDetalle() {
             <p className="text-sm text-dagrd-navy/70">{resumen.si} asistieron · {resumen.no} no asistieron · {resumen.pend} sin registrar</p>
           </div>
           <p className="mt-1 text-xs text-dagrd-navy/60">
-            Al marcar «Asistió» se otorgan {sesion.modulo_codigo === 'RI' ? 0 : 20} XP una sola vez por misión. La asistencia sola no aprueba la misión.
+            Al marcar «Asistió» se habilitan las actividades de la misión para la persona y se otorgan {sesion.modulo_codigo === 'RI' ? 0 : 20} XP una sola vez por misión. La asistencia sola no aprueba la misión.
           </p>
           {inscritos.length === 0
             ? <p className="mt-4 text-sm text-dagrd-navy/70">Todavía no hay participantes inscritos.</p>
@@ -268,7 +426,10 @@ export default function SesionDetalle() {
                 {inscritos.map((i) => <FilaAsistencia key={i.perfil_id} i={i} sesion={sesion} alCambiar={cargar} puedeRetirar={gestiona} />)}
               </ul>}
         </section>
-        {gestiona && sesion.estado !== 'cancelada' && <Inscribir sesion={sesion} inscritos={inscritos} alInscribir={cargar} />}
+        <div className="space-y-6">
+          {gestiona && activa && <Inscribir sesion={sesion} inscritos={inscritos} alInscribir={cargar} />}
+          <Historial id={sesion.id} version={version} />
+        </div>
       </div>
     </div>
   )

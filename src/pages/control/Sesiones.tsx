@@ -10,7 +10,7 @@ import type { Modalidad } from '../../data/types'
 
 const campo = 'mt-1 block min-h-[44px] w-full rounded-xl border border-dagrd-navy/20 bg-white px-3 text-sm'
 const ESTADO_SESION: Record<SesionControl['estado'], string> = {
-  programada: 'bg-dagrd-azul/10 text-dagrd-azul', realizada: 'bg-dagrd-petroleo text-white', cancelada: 'bg-dagrd-gris/60 text-dagrd-navy/70',
+  programada: 'bg-dagrd-azul/10 text-dagrd-azul', realizada: 'bg-dagrd-petroleo text-white', suspendida: 'bg-orange-100 text-orange-800', cancelada: 'bg-dagrd-gris/60 text-dagrd-navy/70',
 }
 /** Convierte ISO a valor de <input type="datetime-local"> en la hora del navegador */
 export const aLocal = (iso: string) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16) }

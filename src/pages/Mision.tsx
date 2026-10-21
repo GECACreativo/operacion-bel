@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { resultadosMision, type ResultadosMision } from '../data/evaluacion'
 import { xpDe, xpMaxDe } from '../data/demo'
 import { MODULOS } from '../data/modulos'
 import { PARTICIPACION_TEXTO } from '../data/roles'
@@ -18,11 +20,101 @@ function pasoActual(evid: { tipo: string; estado: string }[], aprobada: boolean)
   return 5
 }
 
+const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+const pct = (n: number) => `${Math.round(Number(n) * 100)} %`
+
+function Sello({ ok, si, no }: { ok: boolean; si: string; no: string }) {
+  return <span className={`rounded-pill px-2.5 py-1 text-xs font-bold ${ok ? 'bg-dagrd-petroleo text-white' : 'bg-orange-100 text-orange-800'}`}>{ok ? si : no}</span>
+}
+
+/** Resultados propios: asistencia, reto práctico (criterios), ejecución autónoma y cuestionario. */
+function MisResultados({ r }: { r: ResultadosMision }) {
+  const reto = r.retos[0]
+  const vacio = !r.asistencias.length && !r.retos.length && !r.intentos.length
+  return (
+    <section className="tarjeta p-6" aria-labelledby="t-resultados">
+      <h2 id="t-resultados" className="text-xl font-black">Mis resultados</h2>
+      {vacio && <p className="mt-2 text-sm text-dagrd-navy/70">Aquí verás tu asistencia, la evaluación de tu reto práctico y tus intentos del cuestionario a medida que los completes.</p>}
+
+      {r.asistencias.length > 0 && (
+        <div className="mt-4">
+          <h3 className="etiqueta text-dagrd-azul">Asistencia</h3>
+          <ul className="mt-2 space-y-2 text-sm">
+            {r.asistencias.map((a, k) => (
+              <li key={k} className="flex flex-wrap items-center gap-2">
+                <span className="font-bold">{fecha(a.inicio)}</span><span className="text-dagrd-navy/60">· {a.modalidad}</span>
+                {a.estado_sesion === 'suspendida' || a.estado_sesion === 'cancelada'
+                  ? <span className="rounded-pill bg-dagrd-gris/60 px-2.5 py-1 text-xs font-bold">Sesión {a.estado_sesion} · no cuenta</span>
+                  : <Sello ok={a.presente} si="Asistió" no="No asistió" />}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {reto && (
+        <div className="mt-5">
+          <h3 className="etiqueta text-dagrd-azul">Reto práctico</h3>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Sello ok={reto.aprobado} si="Aprobado" no="No aprobado" />
+            <Sello ok={reto.autonomo && reto.aprobado} si="Ejecución autónoma validada" no="Ejecución autónoma pendiente" />
+          </div>
+          <p className="mt-1 text-xs text-dagrd-navy/60">{fecha(reto.fecha)}{reto.evaluador ? ` · Evaluó: ${reto.evaluador}` : ''}
+            {r.retos.length > 1 ? ` · ${r.retos.length} evaluaciones en total` : ''}</p>
+          <ul className="mt-3 space-y-2">
+            {reto.criterios.map((c, k) => (
+              <li key={k} className="flex items-start gap-2 text-sm">
+                <span aria-hidden className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-black ${c.cumple ? 'bg-dagrd-petroleo text-white' : 'bg-orange-100 text-orange-800'}`}>{c.cumple ? '✓' : '✕'}</span>
+                <span><span className="sr-only">{c.cumple ? 'Cumple: ' : 'No cumple: '}</span>{c.descripcion}
+                  {c.critico && <span className="ml-2 rounded-pill bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase text-red-800">Crítico</span>}</span>
+              </li>
+            ))}
+          </ul>
+          {reto.observaciones && <p className="mt-3 rounded-2xl bg-[#efefed] p-3 text-sm"><span className="font-bold">Observaciones del instructor: </span>{reto.observaciones}</p>}
+        </div>
+      )}
+
+      {r.intentos.length > 0 && (
+        <div className="mt-5">
+          <h3 className="etiqueta text-dagrd-azul">Cuestionario</h3>
+          <ul className="mt-2 space-y-1 text-sm">
+            {r.intentos.map((i, k) => (
+              <li key={k} className="flex flex-wrap items-center gap-2">
+                <span className="font-bold">Intento {r.intentos.length - k}</span>
+                <span className="text-dagrd-navy/60">· {fecha(i.fecha)} · {pct(i.puntaje)}</span>
+                <Sello ok={i.aprobado} si="Aprobado" no="No aprobado" />
+              </li>
+            ))}
+          </ul>
+          {r.ultimo_intento.length > 0 && (
+            <details className="mt-3 rounded-2xl bg-[#f7f7f5] p-3">
+              <summary className="cursor-pointer text-sm font-bold">Revisar mi último intento</summary>
+              <ol className="mt-3 space-y-3">
+                {r.ultimo_intento.map((q, k) => (
+                  <li key={k} className="text-sm">
+                    <p className="font-bold">{k + 1}. {q.enunciado}</p>
+                    <p className={q.correcta ? 'text-dagrd-petroleo' : 'text-orange-800'}>
+                      {q.correcta ? 'Correcta' : 'Incorrecta'}{q.respuesta ? ` · Tu respuesta: ${q.respuesta}` : ' · Sin responder'}
+                    </p>
+                    {q.retroalimentacion && <p className="text-xs text-dagrd-navy/70">{q.retroalimentacion}</p>}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function Mision() {
   const { codigo = '' } = useParams()
   const { rol, progreso, sesiones } = useEstado()
   const m = MODULOS[codigo]
   const p = progreso.find((x) => x.codigo === codigo)
+  const [res, setRes] = useState<ResultadosMision | null>(null)
+  useEffect(() => { if (p) resultadosMision(codigo).then(setRes).catch(() => setRes(null)) }, [codigo, p])
 
   if (!m || !p) {
     return (
@@ -35,7 +127,8 @@ export default function Mision() {
   }
 
   const enRol = rol?.ruta[codigo]
-  const aprobada = p.estado === 'aprobada'
+  const aprobada = p.estado === 'aprobada' || p.estado === 'convalidada'
+  const conAsistencia = p.evidencias.find((e) => e.tipo === 'asistencia')?.estado === 'validada'
   const paso = pasoActual(p.evidencias, aprobada)
   const sesion = sesiones.find((s) => s.codigo === codigo)
 
@@ -157,8 +250,13 @@ export default function Mision() {
             </p>
             {!aprobada && (
               <div className="mt-4 grid gap-2">
-                {p.estado === 'bloqueada'
-                  ? <button className="boton-primario" disabled>Responder cuestionario</button>
+                {!conAsistencia
+                  ? <>
+                      <button className="boton-primario" disabled>Responder cuestionario</button>
+                      <p className="rounded-2xl bg-dagrd-amarillo/30 p-3 text-center text-xs font-bold">
+                        Las actividades de esta misión se habilitan cuando tu instructor registra tu asistencia a su sesión de capacitación.
+                      </p>
+                    </>
                   : <Link to={`/mision/${codigo}/cuestionario`} className="boton-primario">
                       {p.evidencias.find((e) => e.tipo === 'cuestionario')?.estado === 'validada' ? 'Ver cuestionario' : 'Responder cuestionario'}
                     </Link>}
@@ -166,6 +264,8 @@ export default function Mision() {
               </div>
             )}
           </section>
+
+          {res && <MisResultados r={res} />}
 
           {sesion && (
             <section className="tarjeta p-6" aria-labelledby="t-sesion">
