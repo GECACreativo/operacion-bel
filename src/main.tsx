@@ -14,6 +14,7 @@ import Sesiones from './pages/control/Sesiones'
 import SesionDetalle from './pages/control/SesionDetalle'
 import Contenidos from './pages/control/Contenidos'
 import Tablero from './pages/control/Tablero'
+import Usuarios from './pages/control/Usuarios'
 
 // Si algo falla al dibujar una pantalla, se muestra un aviso en lugar de una pantalla en blanco.
 class Protector extends Component<{ children: ReactNode }, { error: Error | null; pila: string }> {
@@ -81,6 +82,7 @@ function Rutas() {
         {(esGestor || esInstructor) && <Route path="control" element={<Sesiones />} />}
         {(esGestor || esInstructor) && <Route path="control/sesion/:id" element={<SesionDetalle />} />}
         {esGestor && <Route path="control/contenidos" element={<Contenidos />} />}
+        {esGestor && <Route path="control/usuarios" element={<Usuarios />} />}
         {(esGestor || esCoordinacion) && <Route path="control/tablero" element={<Tablero />} />}
         {!esGestor && !esInstructor && esCoordinacion && <Route path="control" element={<Navigate to="/control/tablero" replace />} />}
         <Route path="*" element={<Navigate to="/" replace />} />

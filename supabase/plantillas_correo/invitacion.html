@@ -1,0 +1,20 @@
+<!-- Supabase › Authentication › Emails › Invite user. Asunto sugerido: Tu acceso a Operación BEL -->
+<div style="font-family:Arial,Helvetica,sans-serif;background:#efefed;padding:24px">
+  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden">
+    <div style="background:#232c4b;padding:24px;color:#ffffff">
+      <div style="font-size:11px;letter-spacing:3px">OPERACIÓN</div>
+      <div style="font-size:32px;font-weight:900;color:#fddb16">BEL</div>
+      <div style="font-size:14px;margin-top:4px">Preparados para cada desafío</div>
+    </div>
+    <div style="padding:24px;color:#1f2b3f;font-size:15px;line-height:1.5">
+      <p>¡Hola!</p>
+      <p>Fuiste inscrito en <strong>Operación BEL</strong>, la ruta de formación de Bomberos en Línea del DAGRD. Allí encontrarás las misiones de tu rol, tus sesiones y tu avance.</p>
+      <p style="text-align:center;margin:28px 0">
+        <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite"
+           style="background:#fddb16;color:#1f2b3f;font-weight:bold;text-decoration:none;padding:14px 28px;border-radius:999px;display:inline-block">Crear mi contraseña</a>
+      </p>
+      <p style="font-size:13px;color:#555">El enlace funciona una sola vez. Usa una contraseña distinta a la de BEL. Si no esperabas este correo, ignóralo.</p>
+    </div>
+    <div style="background:#fddb16;padding:12px 24px;font-size:12px;font-weight:bold;color:#1f2b3f">La misión es individual. El resultado es de todos.</div>
+  </div>
+</div>

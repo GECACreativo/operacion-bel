@@ -68,11 +68,31 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const enRecuperacion = useRef(false)
 
   useEffect(() => {
+    // Enlaces de correo (invitación o recuperación): llegan como ?token_hash=…&type=invite|recovery
+    const params = new URLSearchParams(window.location.search)
+    const tokenHash = params.get('token_hash')
+    const tipo = params.get('type') as 'invite' | 'recovery' | null
+    let verificando = false
+    if (tokenHash && (tipo === 'invite' || tipo === 'recovery')) {
+      verificando = true
+      enRecuperacion.current = true
+      window.history.replaceState(null, '', window.location.pathname + window.location.hash)
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: tipo }).then(({ error }) => {
+        verificando = false
+        if (error) {
+          enRecuperacion.current = false
+          setError('El enlace venció o ya fue usado. Sal y pide uno nuevo con «¿Olvidaste tu contraseña?».')
+          setFase('error')
+        } else setFase('recuperacion')
+      })
+    }
+
     // Importante: no llamar a Supabase directamente dentro de onAuthStateChange (puede bloquearse).
     // Por eso las cargas se difieren con setTimeout.
     const { data } = supabase.auth.onAuthStateChange((evento, s) => {
       setSesion(s)
       if (evento === 'PASSWORD_RECOVERY') { enRecuperacion.current = true; setFase('recuperacion'); return }
+      if (verificando) return
       if (evento === 'SIGNED_OUT' || !s) {
         usuarioCargado.current = null
         setFase('sin_sesion'); setPerfil(null); setProgreso([])

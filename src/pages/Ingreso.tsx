@@ -105,7 +105,7 @@ export function NuevaClave() {
 
   return (
     <form onSubmit={enviar} className="tarjeta w-full max-w-md p-6 sm:p-8" aria-labelledby="titulo-clave">
-      <h1 id="titulo-clave" className="text-2xl font-black">Crea tu nueva contraseña</h1>
+      <h1 id="titulo-clave" className="text-2xl font-black">Crea tu contraseña</h1>
       <p className="mt-1 text-sm text-dagrd-navy/70">Mínimo 8 caracteres. Usa una distinta a la de BEL.</p>
       <div className="mt-6 space-y-4">
         <label className="block"><span className="text-sm font-bold">Nueva contraseña</span>

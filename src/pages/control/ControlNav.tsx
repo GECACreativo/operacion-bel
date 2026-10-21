@@ -6,6 +6,7 @@ export function opcionesControl(esGestor: boolean, esInstructor: boolean, esCoor
   return [
     (esGestor || esInstructor) && { to: '/control', texto: 'Sesiones' },
     esGestor && { to: '/control/contenidos', texto: 'Contenidos' },
+    esGestor && { to: '/control/usuarios', texto: 'Usuarios' },
     (esGestor || esCoordinacion) && { to: '/control/tablero', texto: 'Tablero' },
   ].filter(Boolean) as { to: string; texto: string }[]
 }
