@@ -157,8 +157,12 @@ export default function Mision() {
             </p>
             {!aprobada && (
               <div className="mt-4 grid gap-2">
-                <button className="boton-primario" disabled aria-describedby="nota-cuestionario">Responder cuestionario</button>
-                <p id="nota-cuestionario" className="text-center text-xs text-dagrd-navy/60">Se habilita en el Paso 6 del desarrollo.</p>
+                {p.estado === 'bloqueada'
+                  ? <button className="boton-primario" disabled>Responder cuestionario</button>
+                  : <Link to={`/mision/${codigo}/cuestionario`} className="boton-primario">
+                      {p.evidencias.find((e) => e.tipo === 'cuestionario')?.estado === 'validada' ? 'Ver cuestionario' : 'Responder cuestionario'}
+                    </Link>}
+                <p className="text-center text-xs text-dagrd-navy/60">El reto práctico lo evalúa tu instructor en la sesión.</p>
               </div>
             )}
           </section>

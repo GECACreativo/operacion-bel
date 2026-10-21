@@ -9,6 +9,7 @@ import MiOperacion from './pages/MiOperacion'
 import Ruta from './pages/Ruta'
 import Mision from './pages/Mision'
 import Insignias from './pages/Insignias'
+import Cuestionario from './pages/Cuestionario'
 import Sesiones from './pages/control/Sesiones'
 import SesionDetalle from './pages/control/SesionDetalle'
 
@@ -73,6 +74,7 @@ function Rutas() {
         <Route index element={<MiOperacion />} />
         <Route path="ruta" element={<Ruta />} />
         <Route path="mision/:codigo" element={<Mision />} />
+        <Route path="mision/:codigo/cuestionario" element={<Cuestionario />} />
         <Route path="insignias" element={<Insignias />} />
         {(esGestor || esInstructor) && <Route path="control" element={<Sesiones />} />}
         {(esGestor || esInstructor) && <Route path="control/sesion/:id" element={<SesionDetalle />} />}

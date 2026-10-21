@@ -34,6 +34,7 @@ export interface Inscrito {
   nombre: string
   correo: string
   rol: string | null
+  rol_id: string | null
   presente: boolean | null // null = sin registrar
 }
 
@@ -68,10 +69,10 @@ export async function listarInstructores(): Promise<{ id: string; nombre: string
 
 export async function listarInscritos(sesionId: string): Promise<Inscrito[]> {
   const ins = ok(await supabase.from('inscripciones')
-    .select('perfil_id, perfil:perfil_id(nombre, correo, rol:rol_bel_id(nombre))').eq('sesion_id', sesionId)) as any[]
+    .select('perfil_id, perfil:perfil_id(nombre, correo, rol_bel_id, rol:rol_bel_id(nombre))').eq('sesion_id', sesionId)) as any[]
   const asis = ok(await supabase.from('asistencias').select('perfil_id, presente').eq('sesion_id', sesionId)) as any[]
   return ins.map((i) => ({
-    perfil_id: i.perfil_id, nombre: i.perfil?.nombre ?? '—', correo: i.perfil?.correo ?? '', rol: i.perfil?.rol?.nombre ?? null,
+    perfil_id: i.perfil_id, nombre: i.perfil?.nombre ?? '—', correo: i.perfil?.correo ?? '', rol: i.perfil?.rol?.nombre ?? null, rol_id: i.perfil?.rol_bel_id ?? null,
     presente: asis.find((a) => a.perfil_id === i.perfil_id)?.presente ?? null,
   })).sort((a, b) => a.nombre.localeCompare(b.nombre))
 }
