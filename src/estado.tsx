@@ -27,6 +27,7 @@ interface Estado {
   nivel: number
   esGestor: boolean
   esInstructor: boolean
+  esCoordinacion: boolean
 }
 
 const Ctx = createContext<Estado | null>(null)
@@ -94,6 +95,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       xp: total('xp'), xpMax: total('xpMax'), nivel: nivelDe(progreso),
       esGestor: !!perfil?.roles.some((r) => r === 'admin_formacion' || r === 'admin_tecnico'),
       esInstructor: !!perfil?.roles.includes('instructor'),
+      esCoordinacion: !!perfil?.roles.includes('coordinacion'),
       ingresar: async (correo, clave) => {
         const { error } = await supabase.auth.signInWithPassword({ email: correo.trim().toLowerCase(), password: clave })
         return error ? traducir(error.message) : null

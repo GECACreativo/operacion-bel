@@ -4,6 +4,7 @@ import { guardarSesion, listarInstructores, listarSesiones, type NuevaSesion, ty
 import { MODULOS, ORDEN_FORMACION } from '../../data/modulos'
 import { useEstado } from '../../estado'
 import { fmtFecha } from '../MiOperacion'
+import ControlNav from './ControlNav'
 import { IconoCalendario, IconoGrupo, IconoUbicacion, IconoUsuario } from '../../components/Iconos'
 import type { Modalidad } from '../../data/types'
 
@@ -118,6 +119,8 @@ export default function Sesiones() {
         </div>
         {!creando && <button onClick={() => setCreando(true)} className="boton-primario">+ Programar sesión</button>}
       </header>
+
+      <ControlNav />
 
       {creando && <FormularioSesion alGuardar={(id) => nav(`/control/sesion/${id}`)} alCancelar={() => setCreando(false)} />}
 

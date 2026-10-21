@@ -12,6 +12,8 @@ import Insignias from './pages/Insignias'
 import Cuestionario from './pages/Cuestionario'
 import Sesiones from './pages/control/Sesiones'
 import SesionDetalle from './pages/control/SesionDetalle'
+import Contenidos from './pages/control/Contenidos'
+import Tablero from './pages/control/Tablero'
 
 // Si algo falla al dibujar una pantalla, se muestra un aviso en lugar de una pantalla en blanco.
 class Protector extends Component<{ children: ReactNode }, { error: Error | null; pila: string }> {
@@ -45,7 +47,7 @@ function Pantalla({ children }: { children: ReactNode }) {
 }
 
 function Rutas() {
-  const { fase, error, recargar, salir, esGestor, esInstructor } = useEstado()
+  const { fase, error, recargar, salir, esGestor, esInstructor, esCoordinacion } = useEstado()
   if (fase === 'cargando') return (
     <Pantalla>
       <div>
@@ -78,6 +80,9 @@ function Rutas() {
         <Route path="insignias" element={<Insignias />} />
         {(esGestor || esInstructor) && <Route path="control" element={<Sesiones />} />}
         {(esGestor || esInstructor) && <Route path="control/sesion/:id" element={<SesionDetalle />} />}
+        {esGestor && <Route path="control/contenidos" element={<Contenidos />} />}
+        {(esGestor || esCoordinacion) && <Route path="control/tablero" element={<Tablero />} />}
+        {!esGestor && !esInstructor && esCoordinacion && <Route path="control" element={<Navigate to="/control/tablero" replace />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
