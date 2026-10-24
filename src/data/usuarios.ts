@@ -18,16 +18,17 @@ export const ROLES_PLATAFORMA = [
 
 export interface Usuario {
   correo: string; nombre: string; rol_bel_id: string | null; roles_bel_extra: string[]; estacion_id: string | null; compania_id: string | null
-  grupo_elite: boolean; roles: string[]; perfil_id: string | null; activo: boolean; invitado_en: string | null; ultimo_ingreso: string | null
+  grupo_elite: boolean; roles: string[]; clave_temporal?: boolean; perfil_id: string | null; activo: boolean; invitado_en: string | null; ultimo_ingreso: string | null
 }
 export type EstadoAcceso = 'preinscrito' | 'invitado' | 'activo' | 'inactivo'
 export const estadoAcceso = (u: Usuario): EstadoAcceso =>
   !u.activo ? 'inactivo' : u.ultimo_ingreso ? 'activo' : u.perfil_id || u.invitado_en ? 'invitado' : 'preinscrito'
 
 export async function listarUsuarios(): Promise<Usuario[]> {
-  const [lista, extras] = await Promise.all([supabase.rpc('usuarios_admin'), supabase.rpc('roles_bel_extra_admin')])
+  const [lista, extras, claves] = await Promise.all([supabase.rpc('usuarios_admin'), supabase.rpc('roles_bel_extra_admin'), supabase.rpc('claves_estado_admin')])
+  const cl = new Set((ok(claves) as { correo: string; debe_cambiar_clave: boolean }[]).filter((c) => c.debe_cambiar_clave).map((c) => c.correo))
   const ex = new Map((ok(extras) as { correo: string; roles_bel_extra: string[] }[]).map((e) => [e.correo, e.roles_bel_extra ?? []]))
-  return (ok(lista) as Usuario[]).map((u) => ({ ...u, roles_bel_extra: ex.get(u.correo) ?? [] }))
+  return (ok(lista) as Usuario[]).map((u) => ({ ...u, roles_bel_extra: ex.get(u.correo) ?? [], clave_temporal: cl.has(u.correo) }))
 }
 
 export async function catalogos() {
@@ -65,4 +66,13 @@ export async function invitar(correos: string[]) {
 
 export async function renombrarUnidad(id: string, nombre: string) {
   ok(await supabase.from('unidades').update({ nombre: nombre.trim() }).eq('id', id))
+}
+
+export interface ClaveAsignada { correo: string; nombre?: string; estado: 'creado' | 'actualizado' | 'error'; clave?: string; detalle?: string }
+
+/** Plan B sin correo: asigna contraseñas temporales (una distinta por persona, o la misma si se indica). Se muestran una sola vez. */
+export async function asignarClavesTemporales(correos: string[], clave?: string) {
+  const { data, error } = await supabase.functions.invoke('claves-temporales', { body: { correos, clave: clave || null } })
+  if (error) throw new Error(error.message)
+  return data.resultados as ClaveAsignada[]
 }

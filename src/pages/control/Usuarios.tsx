@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  catalogos, estadoAcceso, guardarUsuario, invitar, listarUsuarios, renombrarUnidad, ROLES_PLATAFORMA,
-  type EstadoAcceso, type Usuario,
+  asignarClavesTemporales, catalogos, estadoAcceso, guardarUsuario, invitar, listarUsuarios, renombrarUnidad, ROLES_PLATAFORMA,
+  type ClaveAsignada, type EstadoAcceso, type Usuario,
 } from '../../data/usuarios'
 import ControlNav from './ControlNav'
+import { urlRetorno } from '../../lib/supabase'
 
 type Catalogos = Awaited<ReturnType<typeof catalogos>>
 const campo = 'mt-1 block min-h-[44px] w-full rounded-xl border border-dagrd-navy/20 bg-white px-3 text-sm'
@@ -182,6 +183,84 @@ function Estaciones({ cat, alCambiar }: { cat: Catalogos; alCambiar: () => void 
   )
 }
 
+
+// Plan B sin correo: contraseñas temporales que administración entrega por otro medio (WhatsApp, Teams, en persona)
+function ClavesTemporales({ correos, alTerminar, alCerrar }: { correos: string[]; alTerminar: () => void; alCerrar: () => void }) {
+  const [modo, setModo] = useState<'distinta' | 'misma'>('distinta')
+  const [misma, setMisma] = useState('')
+  const [res, setRes] = useState<ClaveAsignada[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [trabajando, setTrabajando] = useState(false)
+  const [copiado, setCopiado] = useState<string | null>(null)
+  const enlace = urlRetorno()
+  const mensaje = (r: ClaveAsignada) =>
+    `Hola${r.nombre ? ` ${r.nombre.split(' ')[0]}` : ''}, ya tienes acceso a Operación BEL.\nIngresa en ${enlace}\nUsuario: ${r.correo}\nContraseña temporal: ${r.clave}\nAl entrar te pedirá crear tu propia contraseña.`
+  const copiar = async (texto: string, id: string) => {
+    try { await navigator.clipboard.writeText(texto); setCopiado(id); setTimeout(() => setCopiado(null), 2000) } catch { /* sin portapapeles */ }
+  }
+  const asignar = async () => {
+    setError(null)
+    if (modo === 'misma' && misma.trim().length < 8) return setError('La contraseña debe tener al menos 8 caracteres.')
+    setTrabajando(true)
+    try { setRes(await asignarClavesTemporales(correos, modo === 'misma' ? misma.trim() : undefined)); alTerminar() }
+    catch (e) { setError((e as Error).message) }
+    setTrabajando(false)
+  }
+  const ok = (res ?? []).filter((r) => r.estado !== 'error')
+  return (
+    <div className="mt-4 rounded-2xl border-2 border-dagrd-navy/15 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="font-black">Contraseña temporal · {correos.length} {correos.length === 1 ? 'persona' : 'personas'}</h3>
+          <p className="text-xs text-dagrd-navy/70">Úsala si el correo no llega. La persona entra con su correo y esta contraseña, y la plataforma le pide crear una propia.</p>
+        </div>
+        <button onClick={alCerrar} className="text-sm font-bold text-dagrd-navy/60 hover:underline">Cerrar</button>
+      </div>
+      {!res ? (
+        <>
+          <fieldset className="mt-3 space-y-2 text-sm">
+            <label className="flex items-start gap-2"><input type="radio" name="modo" className="mt-1 accent-[#00394b]" checked={modo === 'distinta'} onChange={() => setModo('distinta')} />
+              <span><span className="font-bold">Una distinta para cada persona</span> (recomendado). Ej.: Sirena-4827-Bel</span></label>
+            <label className="flex items-start gap-2"><input type="radio" name="modo" className="mt-1 accent-[#00394b]" checked={modo === 'misma'} onChange={() => setModo('misma')} />
+              <span><span className="font-bold">La misma para todas</span> <span className="text-dagrd-navy/60">— menos segura: cualquiera que la conozca podría entrar con el correo de otra persona antes de que la cambie.</span></span></label>
+            {modo === 'misma' && <input value={misma} onChange={(e) => setMisma(e.target.value)} placeholder="Mínimo 8 caracteres" aria-label="Contraseña temporal"
+              className="ml-6 block min-h-[40px] w-64 rounded-xl border border-dagrd-navy/20 px-3 font-mono" />}
+          </fieldset>
+          <p className="mt-3 text-xs text-dagrd-navy/70">Si la persona ya tenía contraseña, se reemplaza. Queda registrado en la auditoría.</p>
+          {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+          <button onClick={asignar} disabled={trabajando} className="boton-secundario mt-3">{trabajando ? 'Asignando…' : 'Asignar contraseña temporal'}</button>
+        </>
+      ) : (
+        <>
+          <p role="status" className="mt-3 rounded-xl bg-dagrd-amarillo/30 p-3 text-sm font-bold">
+            Copia y entrega estas contraseñas ahora: por seguridad no se guardan y no se podrán volver a ver. Si alguien la pierde, asígnale otra.
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead className="text-xs uppercase text-dagrd-navy/60"><tr><th className="py-1 pr-2">Persona</th><th className="pr-2">Contraseña temporal</th><th></th></tr></thead>
+              <tbody className="divide-y divide-dagrd-navy/10">
+                {res.map((r) => (
+                  <tr key={r.correo}>
+                    <td className="py-2 pr-2"><span className="font-bold">{r.nombre ?? r.correo}</span><span className="block text-xs text-dagrd-navy/60">{r.correo}</span></td>
+                    <td className="pr-2">{r.estado === 'error' ? <span className="text-red-700">{r.detalle}</span> : <span className="font-mono font-bold">{r.clave}</span>}</td>
+                    <td className="text-right">{r.estado !== 'error' && (
+                      <button onClick={() => copiar(mensaje(r), r.correo)} className="rounded-pill border border-dagrd-navy/20 px-3 py-1 text-xs font-bold hover:bg-[#efefed]">
+                        {copiado === r.correo ? '¡Copiado!' : 'Copiar mensaje'}</button>)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {ok.length > 1 && (
+            <button onClick={() => copiar(ok.map((r) => `${r.nombre ?? ''}\t${r.correo}\t${r.clave}`).join('\n'), 'todo')} className="boton-fantasma mt-3">
+              {copiado === 'todo' ? '¡Copiado!' : 'Copiar todo (para Excel)'}</button>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null)
   const [cat, setCat] = useState<Catalogos | null>(null)
@@ -193,6 +272,7 @@ export default function Usuarios() {
   const [elegidos, setElegidos] = useState<string[]>([])
   const [resultado, setResultado] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [claves, setClaves] = useState<string[] | null>(null)
 
   const cargar = useCallback(() => {
     listarUsuarios().then(setUsuarios).catch((e) => setError(e.message))
@@ -224,7 +304,7 @@ export default function Usuarios() {
       <header>
         <p className="etiqueta text-dagrd-azul">Centro de control</p>
         <h1 className="mt-1 text-3xl font-black">Usuarios</h1>
-        <p className="mt-1 text-dagrd-navy/75">Preinscribe a las personas con su rol de BEL y envíales la invitación por correo.</p>
+        <p className="mt-1 text-dagrd-navy/75">Preinscribe a las personas con su rol de BEL y dales acceso: invitación por correo o contraseña temporal.</p>
       </header>
       <ControlNav />
 
@@ -253,9 +333,11 @@ export default function Usuarios() {
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl bg-dagrd-amarillo/25 p-3">
             <p className="text-sm font-bold">{elegidos.length} seleccionadas</p>
             <button onClick={enviarInvitaciones} disabled={enviando} className="boton-secundario min-h-[40px]">{enviando ? 'Enviando…' : 'Enviar invitación por correo'}</button>
-            <p className="text-xs text-dagrd-navy/70">A quien ya tiene cuenta se le envía un enlace para crear su contraseña.</p>
+            <button onClick={() => setClaves(elegidos)} className="boton-fantasma min-h-[40px]">Asignar contraseña temporal</button>
+            <p className="text-xs text-dagrd-navy/70">Si el correo no llega, usa la contraseña temporal y entrégala por WhatsApp, Teams o en persona.</p>
           </div>
         )}
+        {claves && <ClavesTemporales key={claves.join()} correos={claves} alTerminar={() => { setElegidos([]); cargar() }} alCerrar={() => setClaves(null)} />}
         {resultado && <p role="status" className="mt-3 rounded-xl bg-[#efefed] p-3 text-sm">{resultado}</p>}
 
         {usuarios === null ? <p role="status" className="mt-4">Cargando…</p> : visibles.length === 0 ? (
@@ -284,6 +366,7 @@ export default function Usuarios() {
                       <td className="pr-3 text-dagrd-navy/80">{nombreDe(cat?.estaciones, u.estacion_id)} · {nombreDe(cat?.companias, u.compania_id)}</td>
                       <td className="pr-3 text-xs">{u.roles.map((r) => ROLES_PLATAFORMA.find((x) => x.id === r)?.nombre ?? r).join(', ')}</td>
                       <td className="pr-3"><span className={`rounded-pill px-2.5 py-1 text-xs font-bold ${est.c}`}>{est.t}</span>
+                        {u.clave_temporal && <span className="mt-1 block text-[11px] font-bold text-orange-700">Contraseña temporal sin cambiar</span>}
                         {u.invitado_en && !u.ultimo_ingreso && <span className="block text-[11px] text-dagrd-navy/60">Invitado el {new Date(u.invitado_en).toLocaleDateString('es-CO')}</span>}</td>
                       <td><button onClick={() => { setImportando(false); setEditando(u); window.scrollTo({ top: 0, behavior: 'smooth' }) }} className="text-sm font-bold text-dagrd-azul hover:underline">Editar</button></td>
                     </tr>

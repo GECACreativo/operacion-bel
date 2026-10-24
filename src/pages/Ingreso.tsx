@@ -88,7 +88,8 @@ function Formulario() {
 }
 
 export function NuevaClave() {
-  const { cambiarClave } = useEstado()
+  const { cambiarClave, perfil, salir } = useEstado()
+  const temporal = !!perfil?.debe_cambiar_clave
   const [clave, setClave] = useState('')
   const [confirmacion, setConfirmacion] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -105,8 +106,11 @@ export function NuevaClave() {
 
   return (
     <form onSubmit={enviar} className="tarjeta w-full max-w-md p-6 sm:p-8" aria-labelledby="titulo-clave">
-      <h1 id="titulo-clave" className="text-2xl font-black">Crea tu contraseña</h1>
-      <p className="mt-1 text-sm text-dagrd-navy/70">Mínimo 8 caracteres. Usa una distinta a la de BEL.</p>
+      <h1 id="titulo-clave" className="text-2xl font-black">{temporal ? 'Cambia tu contraseña temporal' : 'Crea tu contraseña'}</h1>
+      <p className="mt-1 text-sm text-dagrd-navy/70">
+        {temporal ? `Hola${perfil?.nombre ? `, ${perfil.nombre.split(' ')[0]}` : ''}. Ingresaste con una contraseña temporal: crea ahora una personal para continuar. ` : ''}
+        Mínimo 8 caracteres. Usa una distinta a la de BEL.
+      </p>
       <div className="mt-6 space-y-4">
         <label className="block"><span className="text-sm font-bold">Nueva contraseña</span>
           <input type="password" required autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} className={campo} /></label>
@@ -115,6 +119,7 @@ export function NuevaClave() {
       </div>
       {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       <button type="submit" disabled={enviando} className="boton-primario mt-6 w-full text-base">{enviando ? 'Guardando…' : 'Guardar y entrar'}</button>
+      {temporal && <button type="button" onClick={salir} className="mt-3 w-full rounded-pill py-2 text-sm font-bold text-dagrd-navy/60 hover:underline">Salir</button>}
     </form>
   )
 }

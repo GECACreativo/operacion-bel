@@ -37,6 +37,7 @@ const Ctx = createContext<Estado | null>(null)
 const traducir = (m: string) =>
   /invalid login/i.test(m) ? 'Correo o contraseña incorrectos.'
   : /rate limit|too many/i.test(m) ? 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.'
+  : /should be different|same.*password/i.test(m) ? 'La nueva contraseña debe ser distinta a la temporal.'
   : /password should be|weak/i.test(m) ? 'La contraseña no cumple los requisitos de seguridad (mínimo 8 caracteres).'
   : /network|fetch/i.test(m) ? 'No hay conexión con el servidor. Revisa tu internet.'
   : m
@@ -56,9 +57,11 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       setError(null)
       await cargarModulos()
       const p = await cargarPerfil(s.user.id)
+      // Contraseña temporal asignada por administración: debe cambiarla antes de continuar
+      if (p.debe_cambiar_clave) enRecuperacion.current = true
       const [r, ruta, ses, comp] = await Promise.all([cargarRol(p.rol_bel_id, p.roles_bel_extra ?? []), cargarRuta(p.id), cargarSesiones(p.id), cargarCompanias()])
       setPerfil(p); setRol(r); setProgreso(ruta); setSesiones(ses); setCompanias(comp)
-      if (!enRecuperacion.current) setFase('lista')
+      setFase(enRecuperacion.current ? 'recuperacion' : 'lista')
     } catch (e) {
       setError(traducir((e as Error).message))
       setFase('error')
@@ -130,6 +133,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       cambiarClave: async (clave) => {
         const { error } = await supabase.auth.updateUser({ password: clave })
         if (error) return traducir(error.message)
+        await supabase.rpc('clave_cambiada')
         enRecuperacion.current = false
         if (sesion) { setFase('cargando'); await cargarTodo(sesion) }
         return null
