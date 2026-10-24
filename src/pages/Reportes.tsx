@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { MODULOS, ORDEN_FORMACION } from '../data/modulos'
 import { useEstado } from '../estado'
 import {
-  ACCIONES, ESTADOS, IMPACTOS, TIPOS, crearReporte, editarReporte, exportarReportes, gestionarReporte, listarReportes, rolesDeModulo,
+  ACCIONES, ESTADOS, IMPACTOS, TIPOS, crearReporte, editarReporte, exportarReportes, gestionarReporte, listarReportes, rolesDeModulo, todosLosRoles,
   type DatosReporte, type EstadoReporte, type Impacto, type Reporte, type TipoReporte,
 } from '../data/reportes'
 
@@ -57,7 +57,7 @@ function Formulario({ inicial, alGuardar, alCancelar }: { inicial?: Reporte; alG
             {MODULOS_BEL.map((c) => <option key={c} value={c}>{c} · {MODULOS[c]?.nombre}</option>)}
           </select>
         </label>
-        <label><span className="text-sm font-bold">Rol que usaba BEL *</span>
+        <label><span className="text-sm font-bold">Rol que realiza el proceso *</span>
           <select required className={campo} value={d.rol_bel_id} disabled={!roles.length} onChange={(e) => setD({ ...d, rol_bel_id: e.target.value })}>
             <option value="">{d.modulo_codigo ? 'Elige el rol' : 'Primero elige el módulo'}</option>
             {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
@@ -71,7 +71,7 @@ function Formulario({ inicial, alGuardar, alCancelar }: { inicial?: Reporte; alG
         </label>
         <fieldset className="sm:col-span-2">
           <legend className="text-sm font-bold">Tipo *</legend>
-          <div className="mt-1 grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className="mt-1 grid gap-2 sm:grid-cols-3">
             {(Object.keys(TIPOS) as TipoReporte[]).map((t) => (
               <label key={t} className={`cursor-pointer rounded-xl border-2 p-3 text-sm ${d.tipo === t ? 'border-dagrd-navy bg-white' : 'border-transparent bg-[#efefed]'}`}>
                 <input type="radio" name="tipo" value={t} checked={d.tipo === t} onChange={() => setD({ ...d, tipo: t })} className="sr-only" />
@@ -134,7 +134,7 @@ function Tarjeta({ r, alCambiar }: { r: Reporte; alCambiar: () => void }) {
     <li className="tarjeta p-5">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-black text-dagrd-navy/50">#{r.numero}</span>
-        <span className={`rounded-pill px-2.5 py-0.5 text-xs font-bold ${TIPOS[r.tipo].clase}`}>{TIPOS[r.tipo].texto}</span>
+        <span className={`rounded-pill px-2.5 py-0.5 text-xs font-bold ${TIPOS[r.tipo]?.clase ?? 'bg-[#efefed]'}`}>{TIPOS[r.tipo]?.texto ?? r.tipo}</span>
         <span className={`rounded-pill px-2.5 py-0.5 text-xs font-bold ${ESTADOS[r.estado].clase}`}>{ESTADOS[r.estado].texto}</span>
         {r.impacto === 'alto' && <span className="rounded-pill bg-red-600 px-2.5 py-0.5 text-xs font-bold text-white">Impacto alto</span>}
       </div>
@@ -173,7 +173,14 @@ export default function Reportes() {
     && (!f.desde || r.creado_en.slice(0, 10) >= f.desde) && (!f.hasta || r.creado_en.slice(0, 10) <= f.hasta)
     && (!f.texto || `${r.accion} ${r.observacion} ${r.autor}`.toLowerCase().includes(f.texto.toLowerCase()))), [lista, f, perfil])
 
-  const rolesEnLista = useMemo(() => [...new Map((lista ?? []).map((r) => [r.rol_bel_id, r.rol])).entries()].sort((a, b) => a[1].localeCompare(b[1])), [lista])
+  // Roles del filtro: los del módulo elegido, o todos los roles BEL
+  const [rolesFiltro, setRolesFiltro] = useState<{ id: string; nombre: string }[]>([])
+  useEffect(() => {
+    (f.modulo ? rolesDeModulo(f.modulo) : todosLosRoles()).then((r) => {
+      setRolesFiltro(r)
+      setF((x) => (x.rol && !r.some((y) => y.id === x.rol) ? { ...x, rol: '' } : x))
+    }).catch(() => setRolesFiltro([]))
+  }, [f.modulo])
   const resumen = useMemo(() => ({
     abiertos: (lista ?? []).filter((r) => ['nuevo', 'en_revision', 'escalado'].includes(r.estado)).length,
     altos: (lista ?? []).filter((r) => r.impacto === 'alto' && !['resuelto', 'descartado'].includes(r.estado)).length,
@@ -187,7 +194,7 @@ export default function Reportes() {
         <p className="etiqueta text-dagrd-amarillo">Grupo Élite</p>
         <h1 className="mt-1 text-3xl font-black">Reportes de BEL en operación</h1>
         <p className="mt-2 max-w-2xl text-white/75">
-          Registra fallas, dificultades, dudas frecuentes y mejoras de BEL por módulo, rol y acción. Cada reporte queda guardado,
+          Registra fallas, dificultades de uso y dudas frecuentes de BEL por módulo, rol y acción. Cada reporte queda guardado,
           con seguimiento de administración, y se puede descargar para Excel.
         </p>
         <dl className="mt-5 flex flex-wrap gap-3">
@@ -214,7 +221,7 @@ export default function Reportes() {
             </select></label>
           <label className="text-sm font-bold">Rol
             <select className={campo} value={f.rol} onChange={(e) => setF({ ...f, rol: e.target.value })}>
-              <option value="">Todos</option>{rolesEnLista.map(([id, n]) => <option key={id} value={id}>{n}</option>)}
+              <option value="">Todos</option>{rolesFiltro.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
             </select></label>
           <label className="text-sm font-bold">Tipo
             <select className={campo} value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>

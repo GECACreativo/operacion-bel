@@ -7,14 +7,13 @@ const ok = <T,>(r: { data: T; error: { message: string } | null }): T => {
   return r.data
 }
 
-export type TipoReporte = 'falla' | 'dificultad' | 'mejora' | 'duda'
+export type TipoReporte = 'falla' | 'dificultad' | 'duda'
 export type Impacto = 'bajo' | 'medio' | 'alto'
 export type EstadoReporte = 'nuevo' | 'en_revision' | 'escalado' | 'resuelto' | 'descartado'
 
 export const TIPOS: Record<TipoReporte, { texto: string; ayuda: string; clase: string }> = {
   falla: { texto: 'Falla o error', ayuda: 'BEL no hace lo que debería', clase: 'bg-red-100 text-red-800' },
   dificultad: { texto: 'Dificultad de uso', ayuda: 'Funciona, pero cuesta usarlo', clase: 'bg-orange-100 text-orange-800' },
-  mejora: { texto: 'Propuesta de mejora', ayuda: 'Una idea para hacerlo mejor', clase: 'bg-dagrd-azul/10 text-dagrd-azul' },
   duda: { texto: 'Duda frecuente', ayuda: 'El personal pregunta mucho esto', clase: 'bg-dagrd-amarillo/40 text-dagrd-navy' },
 }
 export const IMPACTOS: Record<Impacto, string> = { bajo: 'Bajo', medio: 'Medio', alto: 'Alto · impide operar' }
@@ -74,12 +73,17 @@ export async function rolesDeModulo(modulo: string): Promise<{ id: string; nombr
   return filas.map((f) => f.rol).filter(Boolean).sort((a: any, b: any) => a.orden - b.orden)
 }
 
+/** Todos los roles BEL (para filtrar cuando no hay módulo elegido). */
+export async function todosLosRoles(): Promise<{ id: string; nombre: string }[]> {
+  return ok(await supabase.from('roles_bel').select('id, nombre').order('orden')) as { id: string; nombre: string }[]
+}
+
 /** Descarga para Excel (CSV con «;» y BOM UTF-8). */
 export function exportarReportes(lista: Reporte[]) {
   const enc = ['N.º', 'Fecha', 'Autor', 'Estación', 'Módulo', 'Nombre del módulo', 'Rol', 'Acción', 'Tipo', 'Impacto', 'Observación', 'Estado', 'Respuesta', 'Gestionado por', 'Fecha de gestión']
   const f = (iso: string | null) => (iso ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : '')
   const filas = lista.map((r) => [r.numero, f(r.creado_en), r.autor, r.estacion ?? '', r.modulo_codigo, r.modulo, r.rol, r.accion,
-    TIPOS[r.tipo].texto, IMPACTOS[r.impacto], r.observacion, ESTADOS[r.estado].texto, r.respuesta ?? '', r.gestionado_por ?? '', f(r.gestionado_en)])
+    (TIPOS[r.tipo]?.texto ?? r.tipo), IMPACTOS[r.impacto], r.observacion, ESTADOS[r.estado].texto, r.respuesta ?? '', r.gestionado_por ?? '', f(r.gestionado_en)])
   const csv = [enc, ...filas].map((fila) => fila.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n')
   const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
   const a = document.createElement('a')
