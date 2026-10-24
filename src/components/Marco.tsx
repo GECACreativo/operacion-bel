@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useEstado } from '../estado'
 import { opcionesControl } from '../pages/control/ControlNav'
-import { IconoCalendario, IconoCasa, IconoInsignia, IconoRuta, IconoSalir } from './Iconos'
+import { IconoCalendario, IconoCasa, IconoInsignia, IconoReporte, IconoRuta, IconoSalir } from './Iconos'
 import logoBomberos from '../assets/logo-bomberos.png'
 import logoDagrd from '../assets/logo-dagrd.png'
 import logoAlcaldia from '../assets/logo-alcaldia.png'
@@ -33,9 +33,11 @@ export function Logos({ className = 'h-10' }: { className?: string }) {
 }
 
 export default function Marco() {
-  const { salir, perfil, esGestor, esInstructor, esCoordinacion } = useEstado()
+  const { salir, perfil, esGestor, esInstructor, esCoordinacion, esElite } = useEstado()
   const control = opcionesControl(esGestor, esInstructor, esCoordinacion)
-  const NAV = control.length ? [...NAV_BASE, { to: control[0].to, texto: 'Control', Icono: IconoCalendario }] : NAV_BASE
+  const NAV = [...NAV_BASE,
+    ...(esElite || esGestor || esCoordinacion ? [{ to: '/reportes', texto: 'Reportes', Icono: IconoReporte }] : []),
+    ...(control.length ? [{ to: control[0].to, texto: 'Control', Icono: IconoCalendario }] : [])]
   const { pathname } = useLocation()
   useEffect(() => { window.scrollTo(0, 0) }, [pathname])
 
@@ -82,7 +84,7 @@ export default function Marco() {
       {/* Barra inferior en celular */}
       <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-dagrd-fondo md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <ul className={`grid ${NAV.length > 3 ? "grid-cols-4" : "grid-cols-3"}`}>
+        <ul className="grid" style={{ gridTemplateColumns: `repeat(${NAV.length}, minmax(0, 1fr))` }}>
           {NAV.map(({ to, texto, Icono }) => (
             <li key={to}>
               <NavLink to={to} end={!to.startsWith('/control')} className={({ isActive }) =>

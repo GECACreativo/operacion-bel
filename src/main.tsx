@@ -15,6 +15,7 @@ import SesionDetalle from './pages/control/SesionDetalle'
 import Contenidos from './pages/control/Contenidos'
 import Tablero from './pages/control/Tablero'
 import Usuarios from './pages/control/Usuarios'
+import Reportes from './pages/Reportes'
 
 // Si algo falla al dibujar una pantalla, se muestra un aviso en lugar de una pantalla en blanco.
 class Protector extends Component<{ children: ReactNode }, { error: Error | null; pila: string }> {
@@ -48,7 +49,7 @@ function Pantalla({ children }: { children: ReactNode }) {
 }
 
 function Rutas() {
-  const { fase, error, recargar, salir, esGestor, esInstructor, esCoordinacion } = useEstado()
+  const { fase, error, recargar, salir, esGestor, esInstructor, esCoordinacion, esElite } = useEstado()
   if (fase === 'cargando') return (
     <Pantalla>
       <div>
@@ -79,6 +80,7 @@ function Rutas() {
         <Route path="mision/:codigo" element={<Mision />} />
         <Route path="mision/:codigo/cuestionario" element={<Cuestionario />} />
         <Route path="insignias" element={<Insignias />} />
+        {(esElite || esGestor || esCoordinacion) && <Route path="reportes" element={<Reportes />} />}
         {(esGestor || esInstructor) && <Route path="control" element={<Sesiones />} />}
         {(esGestor || esInstructor) && <Route path="control/sesion/:id" element={<SesionDetalle />} />}
         {esGestor && <Route path="control/contenidos" element={<Contenidos />} />}

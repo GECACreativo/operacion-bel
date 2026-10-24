@@ -11,6 +11,9 @@ export const IconoRuta = ({ className = 'h-5 w-5' }: P) => (
 export const IconoInsignia = ({ className = 'h-5 w-5' }: P) => (
   <svg viewBox="0 0 24 24" className={className} {...base}><circle cx="12" cy="9" r="6" /><path d="M8.5 14 7 22l5-3 5 3-1.5-8" /></svg>
 )
+export const IconoReporte = ({ className = 'h-5 w-5' }: P) => (
+  <svg viewBox="0 0 24 24" className={className} {...base}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 7v4" /><path d="M12 14h.01" /></svg>
+)
 export const IconoCandado = ({ className = 'h-5 w-5' }: P) => (
   <svg viewBox="0 0 24 24" className={className} {...base}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
 )

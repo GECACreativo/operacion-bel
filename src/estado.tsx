@@ -28,6 +28,8 @@ interface Estado {
   esGestor: boolean
   esInstructor: boolean
   esCoordinacion: boolean
+  /** Integrante del Grupo Élite (registra reportes de BEL) */
+  esElite: boolean
 }
 
 const Ctx = createContext<Estado | null>(null)
@@ -116,6 +118,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       esGestor: !!perfil?.roles.some((r) => r === 'admin_formacion' || r === 'admin_tecnico'),
       esInstructor: !!perfil?.roles.includes('instructor'),
       esCoordinacion: !!perfil?.roles.includes('coordinacion'),
+      esElite: !!perfil?.grupo_elite || !!perfil?.roles.includes('promotor_elite'),
       ingresar: async (correo, clave) => {
         const { error } = await supabase.auth.signInWithPassword({ email: correo.trim().toLowerCase(), password: clave })
         return error ? traducir(error.message) : null
