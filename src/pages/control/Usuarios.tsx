@@ -89,6 +89,7 @@ function Importar({ cat, alTerminar }: { cat: Catalogos; alTerminar: () => void 
   const buscar = <T extends { nombre: string }>(lista: T[], v: string) => {
     const n = norm(v); if (!n) return null
     return lista.find((x) => norm(x.nombre) === n) ?? lista.find((x) => norm(x.nombre).startsWith(n)) ??
+      lista.find((x) => norm(x.nombre).endsWith(' ' + n)) ??
       (/\d+/.test(n) ? lista.find((x) => norm(x.nombre).match(/\d+/)?.[0] === n.match(/\d+/)![0]) : undefined) ?? null
   }
   const filas = useMemo(() => texto.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => {
@@ -121,7 +122,7 @@ function Importar({ cat, alTerminar }: { cat: Catalogos; alTerminar: () => void 
       <p className="mt-1 text-sm text-dagrd-navy/75">Copia las filas en Excel y pégalas aquí, en este orden de columnas:</p>
       <p className="mt-2 rounded-xl bg-[#efefed] p-3 font-mono text-xs">Nombre · Correo · Rol BEL · Estación · Compañía · Grupo Élite (Sí/No)</p>
       <textarea rows={6} value={texto} onChange={(e) => setTexto(e.target.value)} aria-label="Filas pegadas desde Excel"
-        placeholder={'Ana Pérez\tana@correo.com\tBombero\tEstación 4\tCompañía B\tSí'} className="mt-3 block w-full rounded-xl border border-dagrd-navy/20 p-3 font-mono text-xs" />
+        placeholder={'Ana Pérez\tana@correo.com\tBombero\tCB4\tB\tSí'} className="mt-3 block w-full rounded-xl border border-dagrd-navy/20 p-3 font-mono text-xs" />
       {filas.length > 0 && (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-sm">
