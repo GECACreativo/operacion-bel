@@ -106,8 +106,9 @@ export async function listarInscritos(sesionId: string, modulo: string): Promise
 export async function candidatos(modulo: string): Promise<{ id: string; nombre: string; correo: string; rol: string }[]> {
   const roles = (ok(await supabase.from('rol_modulo').select('rol_bel_id').eq('modulo_codigo', modulo)) as any[]).map((r) => r.rol_bel_id)
   if (!roles.length) return []
+  // Incluye a quienes tienen el rol como principal o como rol adicional
   const filas = ok(await supabase.from('perfiles').select('id, nombre, correo, rol:rol_bel_id(nombre)')
-    .in('rol_bel_id', roles).eq('activo', true).order('nombre')) as any[]
+    .or(`rol_bel_id.in.(${roles.join(',')}),roles_bel_extra.ov.{${roles.join(',')}}`).eq('activo', true).order('nombre')) as any[]
   return filas.map((f) => ({ id: f.id, nombre: f.nombre, correo: f.correo, rol: f.rol?.nombre ?? '' }))
 }
 

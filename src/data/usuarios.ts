@@ -17,7 +17,7 @@ export const ROLES_PLATAFORMA = [
 ] as const
 
 export interface Usuario {
-  correo: string; nombre: string; rol_bel_id: string | null; estacion_id: string | null; compania_id: string | null
+  correo: string; nombre: string; rol_bel_id: string | null; roles_bel_extra: string[]; estacion_id: string | null; compania_id: string | null
   grupo_elite: boolean; roles: string[]; perfil_id: string | null; activo: boolean; invitado_en: string | null; ultimo_ingreso: string | null
 }
 export type EstadoAcceso = 'preinscrito' | 'invitado' | 'activo' | 'inactivo'
@@ -25,7 +25,9 @@ export const estadoAcceso = (u: Usuario): EstadoAcceso =>
   !u.activo ? 'inactivo' : u.ultimo_ingreso ? 'activo' : u.perfil_id || u.invitado_en ? 'invitado' : 'preinscrito'
 
 export async function listarUsuarios(): Promise<Usuario[]> {
-  return ok(await supabase.rpc('usuarios_admin')) as Usuario[]
+  const [lista, extras] = await Promise.all([supabase.rpc('usuarios_admin'), supabase.rpc('roles_bel_extra_admin')])
+  const ex = new Map((ok(extras) as { correo: string; roles_bel_extra: string[] }[]).map((e) => [e.correo, e.roles_bel_extra ?? []]))
+  return (ok(lista) as Usuario[]).map((u) => ({ ...u, roles_bel_extra: ex.get(u.correo) ?? [] }))
 }
 
 export async function catalogos() {
@@ -46,6 +48,8 @@ export async function guardarUsuario(u: Usuario) {
     p_correo: u.correo, p_nombre: u.nombre, p_rol_bel: u.rol_bel_id, p_estacion: u.estacion_id, p_compania: u.compania_id,
     p_elite: u.grupo_elite, p_roles: u.roles.length ? u.roles : ['participante'], p_activo: u.activo,
   }))
+  // Roles BEL adicionales (una persona puede tener varios roles en BEL)
+  ok(await supabase.rpc('asignar_roles_bel_extra', { p_correo: u.correo, p_roles: u.roles_bel_extra.filter((r) => r !== u.rol_bel_id) }))
   // Retirar roles de plataforma que ya no tiene (RLS: solo administración)
   if (u.perfil_id) {
     const quitar = ROLES_PLATAFORMA.map((r) => r.id).filter((r) => !u.roles.includes(r))

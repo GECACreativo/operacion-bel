@@ -26,7 +26,7 @@ function Formulario({ inicial, alGuardar, alCancelar }: { inicial?: Reporte; alG
     rolesDeModulo(d.modulo_codigo).then((r) => {
       setRoles(r)
       setD((x) => r.some((y) => y.id === x.rol_bel_id) ? x
-        : { ...x, rol_bel_id: r.some((y) => y.id === perfil?.rol_bel_id) ? perfil!.rol_bel_id! : '' })
+        : { ...x, rol_bel_id: [perfil?.rol_bel_id, ...(perfil?.roles_bel_extra ?? [])].find((id) => id && r.some((y) => y.id === id)) ?? '' })
     }).catch(() => setRoles([]))
   }, [d.modulo_codigo, perfil])
 

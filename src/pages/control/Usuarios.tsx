@@ -13,7 +13,7 @@ const ESTADO: Record<EstadoAcceso, { t: string; c: string }> = {
   activo: { t: 'Activo', c: 'bg-dagrd-petroleo text-white' },
   inactivo: { t: 'Inactivo', c: 'bg-orange-100 text-orange-800' },
 }
-const vacio = (): Usuario => ({ correo: '', nombre: '', rol_bel_id: null, estacion_id: null, compania_id: null, grupo_elite: false,
+const vacio = (): Usuario => ({ correo: '', nombre: '', rol_bel_id: null, roles_bel_extra: [], estacion_id: null, compania_id: null, grupo_elite: false,
   roles: ['participante'], perfil_id: null, activo: true, invitado_en: null, ultimo_ingreso: null })
 
 function Editor({ inicial, cat, alCerrar }: { inicial: Usuario; cat: Catalogos; alCerrar: (guardado: boolean) => void }) {
@@ -35,7 +35,7 @@ function Editor({ inicial, cat, alCerrar }: { inicial: Usuario; cat: Catalogos; 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="text-sm font-bold">Nombre completo<input className={campo} value={u.nombre} onChange={(e) => setU({ ...u, nombre: e.target.value })} /></label>
         <label className="text-sm font-bold">Correo<input type="email" className={campo} value={u.correo} disabled={!nuevo} onChange={(e) => setU({ ...u, correo: e.target.value })} /></label>
-        <label className="text-sm font-bold">Rol en BEL
+        <label className="text-sm font-bold">Rol principal en BEL
           <select className={campo} value={u.rol_bel_id ?? ''} onChange={(e) => setU({ ...u, rol_bel_id: e.target.value || null })}>
             <option value="">Elegir…</option>
             {[...new Set(cat.roles.map((r) => r.familia))].map((f) => (
@@ -56,6 +56,21 @@ function Editor({ inicial, cat, alCerrar }: { inicial: Usuario; cat: Catalogos; 
           </label>
         </div>
       </div>
+      <fieldset className="mt-4">
+        <legend className="text-sm font-bold">Roles adicionales en BEL <span className="font-normal text-dagrd-navy/60">(si la persona tiene varios roles al tiempo; su ruta suma las misiones de todos)</span></legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {cat.roles.filter((r) => r.id !== u.rol_bel_id).map((r) => {
+            const on = u.roles_bel_extra.includes(r.id)
+            return (
+              <label key={r.id} className={`flex min-h-[36px] cursor-pointer items-center gap-2 rounded-pill border px-3 text-xs ${on ? 'border-dagrd-navy bg-dagrd-azul/10 font-bold' : 'border-dagrd-navy/20'}`}>
+                <input type="checkbox" className="h-4 w-4 accent-[#00394b]" checked={on}
+                  onChange={(e) => setU({ ...u, roles_bel_extra: e.target.checked ? [...u.roles_bel_extra, r.id] : u.roles_bel_extra.filter((x) => x !== r.id) })} />
+                {r.nombre}
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
       <fieldset className="mt-4">
         <legend className="text-sm font-bold">Permisos en Operación BEL <span className="font-normal text-dagrd-navy/60">(no dan permisos en BEL)</span></legend>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -95,12 +110,17 @@ function Importar({ cat, alTerminar }: { cat: Catalogos; alTerminar: () => void 
   const filas = useMemo(() => texto.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => {
     const c = l.split(l.includes('\t') ? '\t' : l.includes(';') ? ';' : ',').map((x) => x.trim())
     const [nombre = '', correo = '', rol = '', estacion = '', compania = '', elite = ''] = c
-    const r = buscar(cat.roles, rol), e = buscar(cat.estaciones, estacion), co = buscar(cat.companias, compania)
+    // Varios roles en BEL: el primero es el principal (separados con + o con / dentro de la celda)
+    const nombresRol = rol.split(/\s*[+/|]\s*|\s+y\s+/i).filter(Boolean)
+    const rolesHallados = nombresRol.map((x) => buscar(cat.roles, x))
+    const r = rolesHallados[0] ?? null, e = buscar(cat.estaciones, estacion), co = buscar(cat.companias, compania)
+    const rolNoHallado = nombresRol.find((_, i) => !rolesHallados[i])
     const errores = [
       !nombre && 'falta nombre', !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo) && 'correo no válido',
-      !r && `rol «${rol}» no reconocido`, estacion && !e && `estación «${estacion}» no encontrada`, compania && !co && `compañía «${compania}» no encontrada`,
+      (!r || rolNoHallado) && `rol «${rolNoHallado ?? rol}» no reconocido`, estacion && !e && `estación «${estacion}» no encontrada`, compania && !co && `compañía «${compania}» no encontrada`,
     ].filter(Boolean) as string[]
-    return { nombre, correo: correo.toLowerCase(), rol: r, estacion: e, compania: co, elite: /^(s[ií]|x|1|true)$/i.test(elite), errores }
+    const extras = rolesHallados.slice(1).filter(Boolean).map((x) => x!.id)
+    return { nombre, correo: correo.toLowerCase(), rol: r, extras, estacion: e, compania: co, elite: /^(s[ií]|x|1|true)$/i.test(elite), errores }
   }).filter((f) => !/^nombre$/i.test(f.nombre)), [texto, cat])
   const validas = filas.filter((f) => !f.errores.length)
 
@@ -108,7 +128,7 @@ function Importar({ cat, alTerminar }: { cat: Catalogos; alTerminar: () => void 
     let n = 0
     for (const f of validas) {
       try {
-        await guardarUsuario({ ...vacio(), correo: f.correo, nombre: f.nombre, rol_bel_id: f.rol!.id, estacion_id: f.estacion?.id ?? null,
+        await guardarUsuario({ ...vacio(), correo: f.correo, nombre: f.nombre, rol_bel_id: f.rol!.id, roles_bel_extra: f.extras, estacion_id: f.estacion?.id ?? null,
           compania_id: f.compania?.id ?? null, grupo_elite: f.elite, roles: f.elite ? ['participante', 'promotor_elite'] : ['participante'] })
         n++; setEstado(`Guardando ${n} de ${validas.length}…`)
       } catch (e) { setEstado(`Error con ${f.correo}: ${(e as Error).message}`); return }
@@ -121,6 +141,7 @@ function Importar({ cat, alTerminar }: { cat: Catalogos; alTerminar: () => void 
       <h2 id="t-importar" className="text-xl font-black">Importar desde Excel</h2>
       <p className="mt-1 text-sm text-dagrd-navy/75">Copia las filas en Excel y pégalas aquí, en este orden de columnas:</p>
       <p className="mt-2 rounded-xl bg-[#efefed] p-3 font-mono text-xs">Nombre · Correo · Rol BEL · Estación · Compañía · Grupo Élite (Sí/No)</p>
+      <p className="mt-1 text-xs text-dagrd-navy/70">Si la persona tiene varios roles en BEL, escríbelos en la misma celda separados con «+». El primero queda como rol principal. Ej.: <span className="font-mono">Bombero Maquinista + Encargado de Estación</span></p>
       <textarea rows={6} value={texto} onChange={(e) => setTexto(e.target.value)} aria-label="Filas pegadas desde Excel"
         placeholder={'Ana Pérez\tana@correo.com\tBombero\tCB4\tB\tSí'} className="mt-3 block w-full rounded-xl border border-dagrd-navy/20 p-3 font-mono text-xs" />
       {filas.length > 0 && (
@@ -130,7 +151,7 @@ function Importar({ cat, alTerminar }: { cat: Catalogos; alTerminar: () => void 
             <tbody className="divide-y divide-dagrd-navy/10">
               {filas.map((f, i) => (
                 <tr key={i}>
-                  <td className="py-1.5 pr-2">{f.nombre}{f.elite && ' ★'}</td><td className="pr-2">{f.correo}</td><td className="pr-2">{f.rol?.nombre ?? '—'}</td>
+                  <td className="py-1.5 pr-2">{f.nombre}{f.elite && ' ★'}</td><td className="pr-2">{f.correo}</td><td className="pr-2">{f.rol?.nombre ?? '—'}{f.extras.length > 0 && <span className="text-dagrd-navy/60"> + {f.extras.map((id) => cat.roles.find((x) => x.id === id)?.nombre).join(' + ')}</span>}</td>
                   <td className="pr-2">{f.estacion?.nombre ?? '—'} · {f.compania?.nombre ?? '—'}</td>
                   <td className={f.errores.length ? 'text-red-700' : 'text-dagrd-petroleo'}>{f.errores.length ? f.errores.join('; ') : 'Correcta'}</td>
                 </tr>
@@ -259,7 +280,7 @@ export default function Usuarios() {
                         checked={elegidos.includes(u.correo)} onChange={(e) => setElegidos(e.target.checked ? [...elegidos, u.correo] : elegidos.filter((x) => x !== u.correo))} /></td>
                       <td className="pr-3"><span className="font-bold">{u.nombre}</span>{u.grupo_elite && <span className="ml-2 rounded-pill bg-dagrd-amarillo px-2 py-0.5 text-[10px] font-black">ÉLITE</span>}
                         <span className="block text-xs text-dagrd-navy/60">{u.correo}</span></td>
-                      <td className="pr-3">{nombreDe(cat?.roles, u.rol_bel_id)}</td>
+                      <td className="pr-3">{nombreDe(cat?.roles, u.rol_bel_id)}{u.roles_bel_extra.length > 0 && <span className="block text-xs text-dagrd-navy/60">+ {u.roles_bel_extra.map((id) => nombreDe(cat?.roles, id)).join(' + ')}</span>}</td>
                       <td className="pr-3 text-dagrd-navy/80">{nombreDe(cat?.estaciones, u.estacion_id)} · {nombreDe(cat?.companias, u.compania_id)}</td>
                       <td className="pr-3 text-xs">{u.roles.map((r) => ROLES_PLATAFORMA.find((x) => x.id === r)?.nombre ?? r).join(', ')}</td>
                       <td className="pr-3"><span className={`rounded-pill px-2.5 py-1 text-xs font-bold ${est.c}`}>{est.t}</span>

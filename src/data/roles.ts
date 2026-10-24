@@ -10,7 +10,7 @@ const rol = (id: string, nombre: string, familia: string, f: Fila): Rol => ({
   id,
   nombre,
   familia,
-  ruta: Object.fromEntries(Object.entries(f).map(([k, [hace, part]]) => [k, { hace, participacion: p(part) }])),
+  ruta: Object.fromEntries(Object.entries(f).map(([k, [hace, part]]) => [k, { hace, participacion: p(part), porRol: [{ rol: nombre, hace, participacion: p(part) }] }])),
 })
 
 const DASH_AR = 'Usuario con Dashboard y Actividad Reciente'

@@ -39,7 +39,9 @@ export interface Rol {
   nombre: string
   familia: string
   /** Módulo → qué hace el rol allí y su participación */
-  ruta: Record<string, { hace: string; participacion: Participacion[] }>
+  ruta: Record<string, { hace: string; participacion: Participacion[]; porRol: { rol: string; hace: string; participacion: Participacion[] }[] }>
+  /** Todos los roles BEL de la persona (principal primero) */
+  roles?: { id: string; nombre: string }[]
 }
 
 export interface Evidencia {

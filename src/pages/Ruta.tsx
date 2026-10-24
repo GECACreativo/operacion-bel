@@ -17,7 +17,7 @@ export default function Ruta() {
         <p className="etiqueta text-dagrd-azul">Nivel 1 · Mi misión</p>
         <h1 className="mt-1 text-3xl font-black">Mi ruta de misiones</h1>
         <p className="mt-2 text-dagrd-navy/75">
-          Como <strong>{rol.nombre}</strong> recorres {progreso.length - 1} módulos de BEL y el reto final «Mi turno en BEL». Solo aparecen las misiones de tu rol.
+          Como <strong>{rol.nombre}</strong> recorres {progreso.length - 1} módulos de BEL y el reto final «Mi turno en BEL». Solo aparecen las misiones de tu rol{(rol.roles?.length ?? 1) > 1 ? 'es (se suman las de todos)' : ''}.
         </p>
       </header>
 

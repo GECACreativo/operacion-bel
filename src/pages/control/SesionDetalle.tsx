@@ -21,13 +21,14 @@ function EvaluarReto({ i, modulo, alGuardar }: { i: Inscrito; modulo: string; al
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
-    criteriosPara(modulo, i.rol_id).then(setCriterios).catch((e) => setEstado({ tipo: 'error', texto: e.message }))
+    criteriosPara(modulo, i.perfil_id).then(setCriterios).catch((e) => setEstado({ tipo: 'error', texto: e.message }))
     ultimaEvaluacion(i.perfil_id, modulo).then(setPrevia).catch(() => {})
-  }, [modulo, i.rol_id, i.perfil_id])
+  }, [modulo, i.perfil_id])
 
   if (!criterios) return <p role="status" className="mt-3 text-sm">Cargando criterios…</p>
-  if (!criterios.length) return <p className="mt-3 rounded-xl bg-[#efefed] p-3 text-sm">Esta misión aún no tiene criterios para el rol {i.rol ?? 'de esta persona'}.</p>
+  if (!criterios.length) return <p className="mt-3 rounded-xl bg-[#efefed] p-3 text-sm">Esta misión aún no tiene criterios para los roles de {i.nombre}.</p>
 
+  const varios = new Set(criterios.map((c) => c.rol_bel_id).filter(Boolean)).size > 1
   const criticosFallan = criterios.some((c) => c.critico && !marcas[c.id])
   const cumplidos = criterios.filter((c) => marcas[c.id]).length
 
@@ -58,7 +59,7 @@ function EvaluarReto({ i, modulo, alGuardar }: { i: Inscrito; modulo: string; al
             <label className="flex cursor-pointer items-start gap-3 text-sm">
               <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#00394b]" checked={!!marcas[c.id]}
                 onChange={(e) => setMarcas({ ...marcas, [c.id]: e.target.checked })} />
-              <span>{c.descripcion}{c.critico && <span className="ml-2 rounded-pill bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase text-red-800">Crítico</span>}</span>
+              <span>{c.descripcion}{varios && c.rol && <span className="ml-2 rounded-pill bg-dagrd-azul/10 px-2 py-0.5 text-[10px] font-bold text-dagrd-azul">{c.rol}</span>}{c.critico && <span className="ml-2 rounded-pill bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase text-red-800">Crítico</span>}</span>
             </label>
           </li>
         ))}

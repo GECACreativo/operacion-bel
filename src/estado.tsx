@@ -56,7 +56,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       setError(null)
       await cargarModulos()
       const p = await cargarPerfil(s.user.id)
-      const [r, ruta, ses, comp] = await Promise.all([cargarRol(p.rol_bel_id), cargarRuta(p.id), cargarSesiones(p.id), cargarCompanias()])
+      const [r, ruta, ses, comp] = await Promise.all([cargarRol(p.rol_bel_id, p.roles_bel_extra ?? []), cargarRuta(p.id), cargarSesiones(p.id), cargarCompanias()])
       setPerfil(p); setRol(r); setProgreso(ruta); setSesiones(ses); setCompanias(comp)
       if (!enRecuperacion.current) setFase('lista')
     } catch (e) {

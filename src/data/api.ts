@@ -9,6 +9,7 @@ export interface Perfil {
   nombre: string
   correo: string
   rol_bel_id: string | null
+  roles_bel_extra: string[]
   estacion: string | null
   compania: string | null
   grupo_elite: boolean
@@ -33,17 +34,28 @@ export async function cargarModulos() {
 
 export async function cargarPerfil(id: string): Promise<Perfil> {
   const p: any = chequear(await supabase.from('perfiles')
-    .select('id, nombre, correo, rol_bel_id, grupo_elite, estacion:estacion_id(nombre), compania:compania_id(nombre)')
+    .select('id, nombre, correo, rol_bel_id, roles_bel_extra, grupo_elite, estacion:estacion_id(nombre), compania:compania_id(nombre)')
     .eq('id', id).single())
   const roles = chequear(await supabase.from('perfil_roles').select('rol').eq('perfil_id', id)) as { rol: string }[]
   return { ...p, estacion: p.estacion?.nombre ?? null, compania: p.compania?.nombre ?? null, roles: roles.map((r) => r.rol) }
 }
 
-export async function cargarRol(id: string | null): Promise<Rol | null> {
+/** Rol BEL de la persona. Si tiene varios roles, la ruta es la unión de los módulos de todos ellos. */
+export async function cargarRol(id: string | null, extras: string[] = []): Promise<Rol | null> {
   if (!id) return null
-  const r: any = chequear(await supabase.from('roles_bel').select('id, nombre, familia').eq('id', id).single())
-  const filas = chequear(await supabase.from('rol_modulo').select('modulo_codigo, hace, participacion').eq('rol_bel_id', id)) as any[]
-  return { ...r, ruta: Object.fromEntries(filas.map((f) => [f.modulo_codigo, { hace: f.hace, participacion: f.participacion.split('') }])) }
+  const ids = [id, ...extras.filter((x) => x !== id)]
+  const roles = chequear(await supabase.from('roles_bel').select('id, nombre, familia').in('id', ids)) as { id: string; nombre: string; familia: string }[]
+  const orden = ids.map((x) => roles.find((r) => r.id === x)).filter(Boolean) as typeof roles
+  const filas = chequear(await supabase.from('rol_modulo').select('rol_bel_id, modulo_codigo, hace, participacion').in('rol_bel_id', ids)) as any[]
+  const ruta: Rol['ruta'] = {}
+  for (const r of orden) for (const f of filas.filter((x) => x.rol_bel_id === r.id)) {
+    const e = (ruta[f.modulo_codigo] ??= { hace: '', participacion: [], porRol: [] })
+    const part = f.participacion.split('') as Rol['ruta'][string]['participacion']
+    e.porRol.push({ rol: r.nombre, hace: f.hace, participacion: part })
+    e.participacion = [...new Set([...e.participacion, ...part])]
+    e.hace = e.porRol.length > 1 ? e.porRol.map((p) => `${p.rol}: ${p.hace}`).join(' · ') : f.hace
+  }
+  return { id, nombre: orden.map((r) => r.nombre).join(' + '), familia: orden[0]?.familia ?? '', ruta, roles: orden.map(({ id, nombre }) => ({ id, nombre })) }
 }
 
 export async function cargarRuta(perfilId: string): Promise<ProgresoMision[]> {

@@ -39,12 +39,11 @@ export async function enviarCuestionario(id: string, respuestas: Record<string, 
   return ok(await supabase.rpc('enviar_cuestionario', { p_cuestionario: id, p_respuestas: respuestas })) as Resultado
 }
 
-export interface Criterio { id: string; descripcion: string; critico: boolean; orden: number }
+export interface Criterio { id: string; descripcion: string; critico: boolean; orden: number; rol_bel_id?: string | null; rol?: string | null }
 
-export async function criteriosPara(modulo: string, rolId: string | null): Promise<Criterio[]> {
-  let q = supabase.from('criterios').select('id, descripcion, critico, orden, rol_bel_id').eq('modulo_codigo', modulo).eq('activo', true)
-  q = rolId ? q.or(`rol_bel_id.is.null,rol_bel_id.eq.${rolId}`) : q.is('rol_bel_id', null)
-  return (ok(await q.order('orden')) as Criterio[])
+/** Criterios que aplican a la persona en la misión: los generales y los de todos sus roles BEL (sin repetir). */
+export async function criteriosPara(modulo: string, perfilId: string): Promise<Criterio[]> {
+  return ok(await supabase.rpc('criterios_para', { p_perfil: perfilId, p_modulo: modulo })) as Criterio[]
 }
 
 export interface EvaluacionPrevia { aprobado: boolean; autonomo: boolean; fecha: string; observaciones: string | null; resultados: Record<string, boolean> }

@@ -190,15 +190,34 @@ export default function Mision() {
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
           {enRol && (
-            <section className="tarjeta border-l-8 border-dagrd-amarillo p-6" aria-labelledby="t-papel">
-              <p className="etiqueta text-dagrd-azul">Tu papel como {rol?.nombre}</p>
-              <h2 id="t-papel" className="mt-1 text-xl font-black">{enRol.hace}</h2>
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {enRol.participacion.map((x) => (
-                  <li key={x} className="rounded-pill bg-dagrd-navy px-3 py-1 text-xs font-bold text-white">{PARTICIPACION_TEXTO[x]}</li>
-                ))}
-              </ul>
-              <p className="mt-3 text-xs text-dagrd-navy/60">Se te evalúa solo sobre lo que tu rol hace en BEL.</p>
+            <section className="tarjeta border-l-8 border-dagrd-amarillo p-6" aria-label="Tu papel en esta misión">
+              {enRol.porRol.length > 1 ? (
+                <>
+                  <p className="etiqueta text-dagrd-azul">Tu papel en esta misión · {enRol.porRol.length} roles</p>
+                  <ul className="mt-2 space-y-3">
+                    {enRol.porRol.map((p) => (
+                      <li key={p.rol}>
+                        <p className="text-xs font-bold text-dagrd-navy/60">Como {p.rol}</p>
+                        <p className="text-lg font-black leading-snug">{p.hace}</p>
+                        <p className="mt-1 flex flex-wrap gap-1.5">{p.participacion.map((x) => (
+                          <span key={x} className="rounded-pill bg-dagrd-navy px-2.5 py-0.5 text-[11px] font-bold text-white">{PARTICIPACION_TEXTO[x]}</span>))}</p>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-xs text-dagrd-navy/60">Tienes varios roles en BEL: el reto práctico incluye lo que haces con cada uno.</p>
+                </>
+              ) : (
+                <>
+                  <p className="etiqueta text-dagrd-azul">Tu papel como {rol?.nombre}</p>
+                  <h2 id="t-papel" className="mt-1 text-xl font-black">{enRol.hace}</h2>
+                  <ul className="mt-3 flex flex-wrap gap-2">
+                    {enRol.participacion.map((x) => (
+                      <li key={x} className="rounded-pill bg-dagrd-navy px-3 py-1 text-xs font-bold text-white">{PARTICIPACION_TEXTO[x]}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-xs text-dagrd-navy/60">Se te evalúa solo sobre lo que tu rol hace en BEL.</p>
+                </>
+              )}
             </section>
           )}
 
