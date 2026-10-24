@@ -33,3 +33,7 @@
 .insignia-obtenida { transition: transform .25s ease; }
 .insignia-obtenida:hover { transform: rotate(-4deg) scale(1.06); }
 @media (prefers-reduced-motion: reduce) { .insignia-obtenida, .insignia-obtenida:hover { transition: none; transform: none; } }
+
+/* Storytelling: aparición suave y breve */
+.aparecer { animation: aparecer .25s ease-out both; }
+@keyframes aparecer { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

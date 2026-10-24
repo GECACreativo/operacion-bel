@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { resultadosMision, type ResultadosMision } from '../data/evaluacion'
+import { HISTORIAS } from '../data/historia'
+import { AperturaMision, DesenlaceMision, DosEspacios, IconoDesafio } from '../components/Historia'
 import { xpDe, xpMaxDe } from '../data/demo'
 import { MODULOS } from '../data/modulos'
 import { PARTICIPACION_TEXTO } from '../data/roles'
@@ -110,7 +112,9 @@ function MisResultados({ r }: { r: ResultadosMision }) {
 
 export default function Mision() {
   const { codigo = '' } = useParams()
-  const { rol, progreso, sesiones } = useEstado()
+  const { rol, progreso, sesiones, perfil, marcarHistoria } = useEstado()
+  const [verApertura, setVerApertura] = useState(false)
+  useEffect(() => { setVerApertura(false); window.scrollTo(0, 0) }, [codigo])
   const m = MODULOS[codigo]
   const p = progreso.find((x) => x.codigo === codigo)
   const [res, setRes] = useState<ResultadosMision | null>(null)
@@ -127,6 +131,11 @@ export default function Mision() {
   }
 
   const enRol = rol?.ruta[codigo]
+  const h = HISTORIAS[codigo]
+  // Pantalla de apertura (storytelling) antes de comenzar la misión, o cuando la persona la pide de nuevo
+  if (h && (verApertura || !perfil?.historias_vistas?.includes(codigo))) {
+    return <AperturaMision codigo={codigo} alComenzar={() => { marcarHistoria(codigo); setVerApertura(false); window.scrollTo(0, 0) }} />
+  }
   const aprobada = p.estado === 'aprobada' || p.estado === 'convalidada'
   const conAsistencia = p.evidencias.find((e) => e.tipo === 'asistencia')?.estado === 'validada' || !!p.habilitacion
   const paso = pasoActual(p.evidencias, aprobada)
@@ -150,7 +159,8 @@ export default function Mision() {
               <ChipEstado estado={p.estado} />
             </div>
             <h1 className="mt-2 text-3xl font-black leading-tight sm:text-4xl">{m.mision}</h1>
-            <p className="mt-1 text-white/75">{m.lema}</p>
+            <p className="mt-1 font-bold text-dagrd-amarillo">{h?.proposito ?? m.lema}</p>
+            {h && <button onClick={() => { setVerApertura(true); window.scrollTo(0, 0) }} className="mt-3 text-sm font-bold text-white/80 underline underline-offset-4 hover:text-white">Ver la historia de la misión</button>}
           </div>
         </div>
         <dl className="relative mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -187,6 +197,8 @@ export default function Mision() {
         </ol>
       </section>
 
+      <DesenlaceMision codigo={codigo} estado={p.estado} />
+
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
           {enRol && (
@@ -222,15 +234,12 @@ export default function Mision() {
           )}
 
           <section className="tarjeta p-6" aria-labelledby="t-mision">
-            <h2 id="t-mision" className="text-xl font-black">La misión</h2>
-            <dl className="mt-4 space-y-4">
-              {[['Objetivo', m.objetivo], ['Reto', m.reto], ['Victoria', m.victoria]].map(([k, v]) => (
-                <div key={k} className="grid gap-1 sm:grid-cols-[110px_1fr]">
-                  <dt className="etiqueta pt-0.5 text-dagrd-azul">{k}</dt>
-                  <dd className="text-sm leading-relaxed">{v}</dd>
-                </div>
-              ))}
-            </dl>
+            <h2 id="t-mision" className="flex items-center gap-2 text-xl font-black"><IconoDesafio className="h-6 w-6 text-dagrd-azul" />El desafío</h2>
+            {h ? (Array.isArray(h.desafio)
+              ? <ul className="mt-3 space-y-2">{h.desafio.map((d) => <li key={d} className="flex gap-3 text-sm leading-relaxed"><span aria-hidden className="mt-2 h-2 w-2 shrink-0 rounded-full bg-dagrd-amarillo" />{d}</li>)}</ul>
+              : <p className="mt-3 text-sm leading-relaxed">{h.desafio}</p>)
+              : <p className="mt-3 text-sm leading-relaxed">{m.reto}</p>}
+            <div className="mt-5 border-t border-dagrd-navy/10 pt-5"><DosEspacios /></div>
           </section>
 
           <section className="tarjeta p-6" aria-labelledby="t-reglas">

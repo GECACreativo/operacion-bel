@@ -11,7 +11,7 @@ const responder = (cuerpo: unknown, estado = 200) =>
   new Response(JSON.stringify(cuerpo), { status: estado, headers: { ...cors, 'Content-Type': 'application/json' } })
 
 // Solo se aceptan enlaces de retorno hacia estas direcciones
-const RETORNOS = ['https://gecacreativo.github.io/operacion-bel/', 'http://localhost:5173/']
+const RETORNOS = ['https://operacionbel.gecacreativo.com/', 'https://bel.gecacreativo.com/', 'https://gecacreativo.github.io/operacion-bel/', 'http://localhost:5173/']
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })

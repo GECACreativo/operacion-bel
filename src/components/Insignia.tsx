@@ -20,7 +20,7 @@ interface Estilo { forma: Forma; fondo: string; anillo: string; icono: string; c
 const p = (d: string) => <path d={d} />
 
 // Íconos de los módulos de BEL (Lucide)
-const ICONOS: Record<string, ReactNode> = {
+export const ICONOS: Record<string, ReactNode> = {
   M00: <><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></>,
   M01: <><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></>,
   M02: <>{p('M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2')}<circle cx="9" cy="7" r="4" />{p('M22 21v-2a4 4 0 0 0-3-3.87')}{p('M16 3.13a4 4 0 0 1 0 7.75')}</>,
@@ -144,6 +144,15 @@ export default function Insignia({ codigo, obtenida, tam = 64, oscuro = false, t
       <rect x={codigo === 'RI' ? 34 : 30} y="79" width={codigo === 'RI' ? 32 : 40} height="16" rx="8" fill={k.cinta} stroke="#fff" strokeWidth={obtenida ? 2 : 0} />
       <text x="50" y="90.6" textAnchor="middle" fontSize="10" fontWeight="900" letterSpacing=".5" fill={k.textoCinta}
         style={{ fontFamily: 'Metropolis, system-ui, sans-serif' }}>{codigo}</text>
+    </svg>
+  )
+}
+
+/** Ícono del módulo en BEL, en línea (para apoyo visual en textos y tarjetas). */
+export function IconoModulo({ codigo, className = 'h-6 w-6' }: { codigo: string; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {ICONOS[codigo] ?? ICONOS.M00}
     </svg>
   )
 }

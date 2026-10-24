@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { NIVELES, xpDe, xpMaxDe } from '../data/demo'
 import { MODULOS } from '../data/modulos'
+import { ELITE, TABLERO } from '../data/historia'
+import { DosEspacios } from '../components/Historia'
 import { useEstado } from '../estado'
 import { Anillo, Barra, ChipEstado, IconoEvidencia, Medalla } from '../components/UI'
 import { IconoCalendario, IconoFlecha, IconoUbicacion } from '../components/Iconos'
@@ -11,10 +13,10 @@ export const fmtFecha = (iso: string) => {
 }
 
 export default function MiOperacion() {
-  const { rol, progreso, xp, xpMax, nivel, perfil, sesiones, companias } = useEstado()
+  const { rol, progreso, xp, xpMax, nivel, perfil, sesiones, companias, esElite } = useEstado()
   if (!rol || !perfil) return <SinRol nombre={perfil?.nombre} />
   const obligatorias = progreso.filter((p) => p.codigo !== 'RI')
-  const aprobadas = obligatorias.filter((p) => p.estado === 'aprobada')
+  const aprobadas = obligatorias.filter((p) => p.estado === 'aprobada' || p.estado === 'convalidada')
   const actual = progreso.find((p) => p.estado === 'en_curso') ?? progreso.find((p) => p.estado === 'disponible')
 
   return (
@@ -53,6 +55,24 @@ export default function MiOperacion() {
           </div>
         </div>
       </section>
+
+      {/* Mensaje del tablero (storytelling) */}
+      <section className="tarjeta grid gap-5 p-6 lg:grid-cols-[1fr_1.1fr] lg:items-center" aria-labelledby="t-tablero">
+        <div>
+          <h2 id="t-tablero" className="text-xl font-black leading-snug">{TABLERO.titulo}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-dagrd-navy/80">{TABLERO.texto}</p>
+          <Link to="/bienvenida" className="mt-3 inline-block text-sm font-bold text-dagrd-azul underline-offset-4 hover:underline">Ver de nuevo la bienvenida</Link>
+        </div>
+        <DosEspacios />
+      </section>
+
+      {esElite && obligatorias.length > 0 && aprobadas.length === obligatorias.length && (
+        <section className="tarjeta border-l-8 border-dagrd-amarillo p-6" aria-labelledby="t-elite">
+          <p className="etiqueta text-dagrd-azul">Grupo Élite</p>
+          <h2 id="t-elite" className="mt-1 text-xl font-black">{ELITE.cierre.titulo}</h2>
+          <div className="mt-2 space-y-2 text-sm leading-relaxed">{ELITE.cierre.parrafos.map((t) => <p key={t}>{t}</p>)}</div>
+        </section>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         {/* Siguiente paso */}

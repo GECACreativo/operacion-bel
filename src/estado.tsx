@@ -30,6 +30,9 @@ interface Estado {
   esCoordinacion: boolean
   /** Integrante del Grupo Élite (registra reportes de BEL) */
   esElite: boolean
+  /** Storytelling: marca la bienvenida o la apertura de una misión como vistas */
+  marcarBienvenida: () => void
+  marcarHistoria: (codigo: string) => void
 }
 
 const Ctx = createContext<Estado | null>(null)
@@ -140,6 +143,14 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       },
       salir: async () => { await supabase.auth.signOut() },
       recargar: async () => { if (sesion) await cargarTodo(sesion) },
+      marcarBienvenida: () => {
+        setPerfil((p) => (p ? { ...p, bienvenida_vista_en: p.bienvenida_vista_en ?? new Date().toISOString() } : p))
+        supabase.rpc('marcar_bienvenida').then(() => {})
+      },
+      marcarHistoria: (codigo) => {
+        setPerfil((p) => (p && !p.historias_vistas.includes(codigo) ? { ...p, historias_vistas: [...p.historias_vistas, codigo] } : p))
+        supabase.rpc('marcar_historia', { p_codigo: codigo }).then(() => {})
+      },
     }
   }, [fase, error, perfil, rol, progreso, sesiones, companias, sesion, cargarTodo])
 

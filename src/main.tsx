@@ -16,6 +16,8 @@ import Contenidos from './pages/control/Contenidos'
 import Tablero from './pages/control/Tablero'
 import Usuarios from './pages/control/Usuarios'
 import Reportes from './pages/Reportes'
+import { Bienvenida } from './components/Historia'
+import { useNavigate } from 'react-router-dom'
 
 // Si algo falla al dibujar una pantalla, se muestra un aviso en lugar de una pantalla en blanco.
 class Protector extends Component<{ children: ReactNode }, { error: Error | null; pila: string }> {
@@ -48,8 +50,13 @@ function Pantalla({ children }: { children: ReactNode }) {
   return <div className="grid min-h-dvh place-items-center bg-dagrd-fondo p-6 text-center text-white">{children}</div>
 }
 
+function RepasoBienvenida() {
+  const nav = useNavigate()
+  return <Bienvenida repaso alTerminar={() => nav('/')} />
+}
+
 function Rutas() {
-  const { fase, error, recargar, salir, esGestor, esInstructor, esCoordinacion, esElite } = useEstado()
+  const { fase, error, recargar, salir, esGestor, esInstructor, esCoordinacion, esElite, perfil, marcarBienvenida } = useEstado()
   if (fase === 'cargando') return (
     <Pantalla>
       <div>
@@ -72,8 +79,11 @@ function Rutas() {
       </div>
     </Pantalla>
   )
+  // Primera entrada: mensaje de bienvenida (storytelling) antes de la plataforma
+  if (perfil && !perfil.bienvenida_vista_en) return <Bienvenida alTerminar={marcarBienvenida} />
   return (
     <Routes>
+      <Route path="bienvenida" element={<RepasoBienvenida />} />
       <Route element={<Marco />}>
         <Route index element={<MiOperacion />} />
         <Route path="ruta" element={<Ruta />} />
