@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
       if (error || !creado.user) { resultados.push({ correo, estado: 'error', detalle: error?.message ?? 'No se pudo crear' }); continue }
       id = creado.user.id; nombre = pre.nombre; estado = 'creado'
     } else {
-      const { error } = await admin.auth.admin.updateUserById(perfil.id, { password: nueva })
+      // email_confirm: si antes se le envió una invitación que no abrió, la cuenta queda sin confirmar y no lo dejaría entrar
+      const { error } = await admin.auth.admin.updateUserById(perfil.id, { password: nueva, email_confirm: true })
       if (error) { resultados.push({ correo, estado: 'error', detalle: error.message }); continue }
     }
     await admin.from('perfiles').update({ debe_cambiar_clave: true, clave_temporal_en: new Date().toISOString() }).eq('id', id)

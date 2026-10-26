@@ -7,7 +7,7 @@ import {
 import { MODULOS } from '../../data/modulos'
 import { useEstado } from '../../estado'
 import { fmtFecha } from '../MiOperacion'
-import { FormularioSesion, aLocal } from './Sesiones'
+import { DescargasAsistencia, FormularioSesion, aLocal } from './Sesiones'
 import { IconoAtras, IconoCheck } from '../../components/Iconos'
 import { criteriosPara, evaluarReto, ultimaEvaluacion, type Criterio, type EvaluacionPrevia } from '../../data/evaluacion'
 
@@ -454,6 +454,10 @@ export default function SesionDetalle() {
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="t-asistencia" className="text-xl font-black">Asistencia</h2>
             <p className="text-sm text-dagrd-navy/70">{resumen.si} asistieron · {resumen.no} no asistieron · {resumen.pend} sin registrar</p>
+          </div>
+          <div className="mt-3">
+            <DescargasAsistencia filtro={{ sesion: sesion.id }} deshabilitado={inscritos.length === 0}
+              nombre={`asistencia-${sesion.modulo_codigo}-${sesion.inicio.slice(0, 10)}`} />
           </div>
           <p className="mt-1 text-xs text-dagrd-navy/60">
             Al marcar «Asistió» se habilitan las actividades de la misión para la persona y se otorgan {sesion.modulo_codigo === 'RI' ? 0 : 20} XP una sola vez por misión. La asistencia sola no aprueba la misión.

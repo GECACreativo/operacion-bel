@@ -39,6 +39,7 @@ const Ctx = createContext<Estado | null>(null)
 
 const traducir = (m: string) =>
   /invalid login/i.test(m) ? 'Correo o contraseña incorrectos.'
+  : /email not confirmed/i.test(m) ? 'Tu cuenta aún no está activada. Pide a administración una contraseña temporal nueva.'
   : /rate limit|too many/i.test(m) ? 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.'
   : /should be different|same.*password/i.test(m) ? 'La nueva contraseña debe ser distinta a la temporal.'
   : /password should be|weak/i.test(m) ? 'La contraseña no cumple los requisitos de seguridad (mínimo 8 caracteres).'

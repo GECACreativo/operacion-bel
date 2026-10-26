@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { descargarExcel, imprimir, listaAsistencia } from '../../data/asistencia'
 import { Link, useNavigate } from 'react-router-dom'
 import { guardarSesion, listarInstructores, listarSesiones, type NuevaSesion, type SesionControl } from '../../data/control'
 import { MODULOS, ORDEN_FORMACION } from '../../data/modulos'
@@ -92,6 +93,58 @@ export function FormularioSesion({ inicial, alGuardar, alCancelar }: {
   )
 }
 
+
+/** Botones de descarga de la lista de asistencia (una sesión o un periodo). */
+export function DescargasAsistencia({ filtro, nombre, deshabilitado = false }: {
+  filtro: { sesion?: string; desde?: string; hasta?: string; modulo?: string }; nombre: string; deshabilitado?: boolean
+}) {
+  const [ocupado, setOcupado] = useState<'excel' | 'pdf' | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+  const ejecutar = async (tipo: 'excel' | 'pdf') => {
+    setOcupado(tipo); setAviso(null)
+    // La ventana se abre antes de consultar para que el navegador no la bloquee
+    const ventana = tipo === 'pdf' ? window.open('', '_blank') : null
+    if (ventana) ventana.document.write('<p style="font-family:Arial;padding:20px">Preparando la lista de asistencia…</p>')
+    try {
+      const filas = await listaAsistencia(filtro)
+      if (!filas.length) { ventana?.close(); setAviso('No hay personas inscritas en las sesiones elegidas.') }
+      else if (tipo === 'excel') descargarExcel(filas, nombre)
+      else if (!imprimir(filas, ventana)) setAviso('El navegador bloqueó la ventana. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.')
+    } catch (e) { ventana?.close(); setAviso((e as Error).message) }
+    setOcupado(null)
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button onClick={() => ejecutar('excel')} disabled={deshabilitado || !!ocupado} className="boton-fantasma min-h-[40px]">
+        {ocupado === 'excel' ? 'Preparando…' : 'Descargar Excel'}</button>
+      <button onClick={() => ejecutar('pdf')} disabled={deshabilitado || !!ocupado} className="boton-fantasma min-h-[40px]">
+        {ocupado === 'pdf' ? 'Preparando…' : 'Imprimir o PDF'}</button>
+      {aviso && <p role="status" className="w-full text-sm text-orange-800">{aviso}</p>}
+    </div>
+  )
+}
+
+function AsistenciaPeriodo() {
+  const hoy = new Date().toISOString().slice(0, 10)
+  const inicioMes = hoy.slice(0, 8) + '01'
+  const [f, setF] = useState({ desde: inicioMes, hasta: hoy, modulo: '' })
+  return (
+    <details className="tarjeta p-5">
+      <summary className="cursor-pointer font-black">Descargar listas de asistencia de un periodo</summary>
+      <p className="mt-2 text-sm text-dagrd-navy/70">Incluye todas las sesiones del periodo{' '}(o de una misión) con las personas inscritas y su asistencia. En «Imprimir o PDF» sale una hoja por sesión con espacio para firma.</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <label className="text-sm font-bold">Desde<input type="date" className={campo} value={f.desde} onChange={(e) => setF({ ...f, desde: e.target.value })} /></label>
+        <label className="text-sm font-bold">Hasta<input type="date" className={campo} value={f.hasta} onChange={(e) => setF({ ...f, hasta: e.target.value })} /></label>
+        <label className="text-sm font-bold">Misión
+          <select className={campo} value={f.modulo} onChange={(e) => setF({ ...f, modulo: e.target.value })}>
+            <option value="">Todas</option>{ORDEN_FORMACION.map((c) => <option key={c} value={c}>{c} · {MODULOS[c]?.mision}</option>)}
+          </select></label>
+      </div>
+      <div className="mt-3"><DescargasAsistencia filtro={f} nombre={`asistencia-${f.desde}-a-${f.hasta}${f.modulo ? '-' + f.modulo : ''}`} deshabilitado={!f.desde || !f.hasta} /></div>
+    </details>
+  )
+}
+
 export default function Sesiones() {
   const { perfil, esGestor } = useEstado()
   const nav = useNavigate()
@@ -123,6 +176,8 @@ export default function Sesiones() {
       <ControlNav />
 
       {creando && <FormularioSesion alGuardar={(id) => nav(`/control/sesion/${id}`)} alCancelar={() => setCreando(false)} />}
+
+      <AsistenciaPeriodo />
 
       <div role="tablist" aria-label="Filtrar sesiones" className="flex gap-2">
         {([['proximas', 'Próximas'], ['pasadas', 'Pasadas'], ['todas', 'Todas']] as const).map(([k, t]) => (
