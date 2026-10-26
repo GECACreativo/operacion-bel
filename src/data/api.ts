@@ -15,6 +15,8 @@ export interface Perfil {
   /** Storytelling: bienvenida vista y misiones cuya apertura ya vio */
   bienvenida_vista_en: string | null
   historias_vistas: string[]
+  /** Firma guardada para firmar asistencias */
+  firma_path: string | null
   estacion: string | null
   compania: string | null
   grupo_elite: boolean
@@ -39,7 +41,7 @@ export async function cargarModulos() {
 
 export async function cargarPerfil(id: string): Promise<Perfil> {
   const p: any = chequear(await supabase.from('perfiles')
-    .select('id, nombre, correo, rol_bel_id, roles_bel_extra, debe_cambiar_clave, bienvenida_vista_en, historias_vistas, grupo_elite, estacion:estacion_id(nombre), compania:compania_id(nombre)')
+    .select('id, nombre, correo, rol_bel_id, roles_bel_extra, debe_cambiar_clave, bienvenida_vista_en, historias_vistas, firma_path, grupo_elite, estacion:estacion_id(nombre), compania:compania_id(nombre)')
     .eq('id', id).single())
   const roles = chequear(await supabase.from('perfil_roles').select('rol').eq('perfil_id', id)) as { rol: string }[]
   return { ...p, estacion: p.estacion?.nombre ?? null, compania: p.compania?.nombre ?? null, roles: roles.map((r) => r.rol) }

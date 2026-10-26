@@ -151,6 +151,9 @@ function FilaAsistencia({ i, sesion, alCambiar, puedeRetirar }: {
           )}
         </div>
       </div>
+      {i.presente === true && (i.firmado_en
+        ? <p className="mt-1 text-xs font-bold text-dagrd-petroleo">✓ Firmó su asistencia · {new Date(i.firmado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</p>
+        : <p className="mt-1 text-xs text-dagrd-navy/60">Pendiente de firma: la persona firma desde su cuenta en Operación BEL.</p>)}
       {i.habilitada && <p className="mt-1 text-xs font-bold text-dagrd-azul">Actividades habilitadas manualmente por administración.</p>}
       {habilitando && (
         <form onSubmit={cambiarHabilitacion} className="mt-3 rounded-2xl bg-dagrd-amarillo/20 p-3">

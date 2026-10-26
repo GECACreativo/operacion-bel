@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { resultadosMision, type ResultadosMision } from '../data/evaluacion'
 import { HISTORIAS } from '../data/historia'
+import { FirmasPendientes } from '../components/Firma'
 import { AperturaMision, DesenlaceMision, DosEspacios, IconoDesafio } from '../components/Historia'
 import { xpDe, xpMaxDe } from '../data/demo'
 import { MODULOS } from '../data/modulos'
@@ -197,6 +198,7 @@ export default function Mision() {
         </ol>
       </section>
 
+      <FirmasPendientes modulo={codigo} />
       <DesenlaceMision codigo={codigo} estado={p.estado} />
 
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">

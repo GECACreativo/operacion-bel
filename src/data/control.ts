@@ -42,6 +42,7 @@ export interface Inscrito {
   rol_id: string | null
   presente: boolean | null // null = sin registrar
   habilitada: boolean // habilitación manual vigente de administración para la misión
+  firmado_en: string | null // el participante firmó su asistencia
 }
 
 const CAMPOS = 'id, modulo_codigo, modalidad, inicio, fin, lugar, enlace, cupo, estado, temas_abordados, temas_pendientes, observaciones_estado, sesion_origen_id, reprogramada_en_id, instructor_id, instructor:instructor_id(nombre), inscripciones(count)'
@@ -91,7 +92,7 @@ export async function listarInstructores(): Promise<{ id: string; nombre: string
 export async function listarInscritos(sesionId: string, modulo: string): Promise<Inscrito[]> {
   const ins = ok(await supabase.from('inscripciones')
     .select('perfil_id, perfil:perfil_id(nombre, correo, rol_bel_id, rol:rol_bel_id(nombre))').eq('sesion_id', sesionId)) as any[]
-  const asis = ok(await supabase.from('asistencias').select('perfil_id, presente').eq('sesion_id', sesionId)) as any[]
+  const asis = ok(await supabase.from('asistencias').select('perfil_id, presente, firmado_en').eq('sesion_id', sesionId)) as any[]
   const ids = ins.map((i) => i.perfil_id)
   const habs = ids.length ? ok(await supabase.from('habilitaciones').select('perfil_id').eq('modulo_codigo', modulo)
     .is('revocada_en', null).in('perfil_id', ids)) as any[] : []
@@ -99,6 +100,7 @@ export async function listarInscritos(sesionId: string, modulo: string): Promise
     perfil_id: i.perfil_id, nombre: i.perfil?.nombre ?? '—', correo: i.perfil?.correo ?? '', rol: i.perfil?.rol?.nombre ?? null, rol_id: i.perfil?.rol_bel_id ?? null,
     presente: asis.find((a) => a.perfil_id === i.perfil_id)?.presente ?? null,
     habilitada: habs.some((h) => h.perfil_id === i.perfil_id),
+    firmado_en: asis.find((a) => a.perfil_id === i.perfil_id)?.firmado_en ?? null,
   })).sort((a, b) => a.nombre.localeCompare(b.nombre))
 }
 

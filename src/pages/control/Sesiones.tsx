@@ -109,7 +109,7 @@ export function DescargasAsistencia({ filtro, nombre, deshabilitado = false }: {
       const filas = await listaAsistencia(filtro)
       if (!filas.length) { ventana?.close(); setAviso('No hay personas inscritas en las sesiones elegidas.') }
       else if (tipo === 'excel') descargarExcel(filas, nombre)
-      else if (!imprimir(filas, ventana)) setAviso('El navegador bloqueó la ventana. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.')
+      else if (!(await imprimir(filas, ventana))) setAviso('El navegador bloqueó la ventana. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.')
     } catch (e) { ventana?.close(); setAviso((e as Error).message) }
     setOcupado(null)
   }

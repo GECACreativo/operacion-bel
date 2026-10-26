@@ -3,6 +3,7 @@ import { NIVELES, xpDe, xpMaxDe } from '../data/demo'
 import { MODULOS } from '../data/modulos'
 import { ELITE, TABLERO } from '../data/historia'
 import { DosEspacios } from '../components/Historia'
+import { FirmasPendientes } from '../components/Firma'
 import { useEstado } from '../estado'
 import { Anillo, Barra, ChipEstado, IconoEvidencia, Medalla } from '../components/UI'
 import { IconoCalendario, IconoFlecha, IconoUbicacion } from '../components/Iconos'
@@ -55,6 +56,8 @@ export default function MiOperacion() {
           </div>
         </div>
       </section>
+
+      <FirmasPendientes />
 
       {/* Mensaje del tablero (storytelling) */}
       <section className="tarjeta grid gap-5 p-6 lg:grid-cols-[1fr_1.1fr] lg:items-center" aria-labelledby="t-tablero">

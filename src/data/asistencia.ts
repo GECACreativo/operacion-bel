@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { enlacesFirmas } from './firmas'
 import logoBomberos from '../assets/logo-bomberos.png'
 import logoDagrd from '../assets/logo-dagrd.png'
 import logoAlcaldia from '../assets/logo-alcaldia.png'
@@ -11,6 +12,7 @@ export interface FilaAsistencia {
   temas_abordados: string | null; temas_pendientes: string | null
   nombre: string; correo: string; rol: string | null; estacion: string | null; compania: string | null; grupo_elite: boolean
   asistencia: 'Asistió' | 'No asistió' | 'Sin registrar'; registrado_por: string | null; registrado_en: string | null
+  firma_path?: string | null; firmado_en?: string | null
 }
 
 export async function listaAsistencia(f: { sesion?: string; desde?: string; hasta?: string; modulo?: string }): Promise<FilaAsistencia[]> {
@@ -18,7 +20,11 @@ export async function listaAsistencia(f: { sesion?: string; desde?: string; hast
     p_sesion: f.sesion ?? null, p_desde: f.desde || null, p_hasta: f.hasta || null, p_modulo: f.modulo || null,
   })
   if (error) throw new Error(error.message)
-  return data as FilaAsistencia[]
+  const firmas = await supabase.rpc('firmas_lista', {
+    p_sesion: f.sesion ?? null, p_desde: f.desde || null, p_hasta: f.hasta || null, p_modulo: f.modulo || null,
+  })
+  const fm = new Map(((firmas.data ?? []) as { sesion_id: string; correo: string; firma_path: string; firmado_en: string }[]).map((x) => [`${x.sesion_id}|${x.correo}`, x]))
+  return (data as FilaAsistencia[]).map((r) => { const x = fm.get(`${r.sesion_id}|${r.correo}`); return { ...r, firma_path: x?.firma_path ?? null, firmado_en: x?.firmado_en ?? null } })
 }
 
 const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -29,14 +35,14 @@ const ESTADO: Record<string, string> = { programada: 'Programada', realizada: 'R
 /** Descarga para Excel (CSV con «;» y BOM UTF-8). */
 export function descargarExcel(filas: FilaAsistencia[], nombreArchivo: string) {
   const enc = ['Fecha', 'Hora inicio', 'Hora fin', 'Misión', 'Módulo BEL', 'Modalidad', 'Lugar', 'Instructor', 'Estado de la sesión',
-    'N.º', 'Nombre', 'Correo', 'Rol BEL', 'Estación', 'Compañía', 'Grupo Élite', 'Asistencia', 'Registrado por', 'Fecha de registro']
+    'N.º', 'Nombre', 'Correo', 'Rol BEL', 'Estación', 'Compañía', 'Grupo Élite', 'Asistencia', 'Registrado por', 'Fecha de registro', 'Firmó', 'Fecha de firma']
   let n = 0, sesionAnterior = ''
   const datos = filas.map((r) => {
     n = r.sesion_id === sesionAnterior ? n + 1 : 1; sesionAnterior = r.sesion_id
     return [new Date(r.inicio).toLocaleDateString('es-CO'), hora(r.inicio), hora(r.fin), `${r.modulo_codigo} · ${r.mision}`, r.modulo,
       r.modalidad, r.lugar ?? (r.enlace ? 'Virtual' : ''), r.instructor ?? '', ESTADO[r.estado_sesion] ?? r.estado_sesion,
       n, r.nombre, r.correo, r.rol ?? '', r.estacion ?? '', r.compania ?? '', r.grupo_elite ? 'Sí' : 'No', r.asistencia,
-      r.registrado_por ?? '', fechaCorta(r.registrado_en)]
+      r.registrado_por ?? '', fechaCorta(r.registrado_en), r.firmado_en ? 'Sí' : 'No', fechaCorta(r.firmado_en ?? null)]
   })
   const csv = [enc, ...datos].map((f) => f.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n')
   const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
@@ -49,7 +55,8 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '
 const abs = (src: string) => new URL(src, window.location.href).href
 
 /** Formato imprimible (y para guardar como PDF): una hoja por sesión, con espacio para firma. */
-export function imprimir(filas: FilaAsistencia[], ventana?: Window | null): boolean {
+export async function imprimir(filas: FilaAsistencia[], ventana?: Window | null): Promise<boolean> {
+  const enlaces = await enlacesFirmas(filas.map((r) => r.firma_path).filter(Boolean) as string[])
   const sesiones = [...new Map(filas.map((r) => [r.sesion_id, r])).values()]
   const hojas = sesiones.map((s) => {
     const personas = filas.filter((r) => r.sesion_id === s.sesion_id)
@@ -71,7 +78,7 @@ export function imprimir(filas: FilaAsistencia[], ventana?: Window | null): bool
       <table class="lista">
         <thead><tr><th>N.º</th><th>Nombre</th><th>Correo</th><th>Rol BEL</th><th>Estación · Compañía</th><th>Asistencia</th><th class="firma">Firma</th></tr></thead>
         <tbody>${personas.map((p, i) => `<tr><td>${i + 1}</td><td><strong>${esc(p.nombre)}</strong></td><td>${esc(p.correo)}</td><td>${esc(p.rol ?? '')}</td>
-          <td>${esc([p.estacion, p.compania].filter(Boolean).join(' · '))}</td><td>${esc(p.asistencia)}</td><td class="firma"></td></tr>`).join('')}</tbody>
+          <td>${esc([p.estacion, p.compania].filter(Boolean).join(' · '))}</td><td>${esc(p.asistencia)}</td><td class="firma">${p.firma_path && enlaces[p.firma_path] ? `<img src="${esc(enlaces[p.firma_path])}" alt="Firma de ${esc(p.nombre)}">` : ''}</td></tr>`).join('')}</tbody>
       </table>
       <footer>
         <div class="linea">Nombre del instructor</div><div class="linea">Firma del instructor</div>
@@ -104,6 +111,7 @@ export function imprimir(filas: FilaAsistencia[], ventana?: Window | null): bool
     .lista td { border-bottom: 1px solid #d3d3d1; padding: 7px 6px; height: 30px; vertical-align: middle; }
     .lista tr:nth-child(even) td { background: #f7f7f5; }
     .firma { width: 150px; }
+    td.firma img { max-height: 34px; max-width: 140px; display: block; }
     footer { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 40px; }
     .linea { border-top: 1px solid #1f2b3f; width: 230px; padding-top: 4px; font-size: 10px; }
     .generado { width: 100%; color: #5b6474; font-size: 9px; margin: 6px 0 0; }
