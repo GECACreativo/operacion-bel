@@ -70,6 +70,8 @@ export interface Sesion {
   lugar: string
   modalidad: Modalidad
   instructor: string
+  /** Enlace de conexión (sesiones virtuales o híbridas) */
+  enlace?: string | null
 }
 
 export interface Participante {

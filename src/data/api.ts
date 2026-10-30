@@ -94,7 +94,8 @@ export async function cargarSesiones(perfilId: string): Promise<Sesion[]> {
   const ahora = Date.now()
   return filas.map((f) => f.sesion).filter((s) => s && s.estado === 'programada' && new Date(s.inicio).getTime() > ahora - 3 * 3600e3)
     .sort((a, b) => a.inicio.localeCompare(b.inicio))
-    .map((s) => ({ id: s.id, codigo: s.modulo_codigo, fecha: s.inicio, lugar: s.lugar ?? s.enlace ?? 'Por confirmar',
+    .map((s) => ({ id: s.id, codigo: s.modulo_codigo, fecha: s.inicio, lugar: s.lugar ?? (s.modalidad === 'Virtual' ? 'Virtual' : 'Por confirmar'),
+                   enlace: /^https?:\/\//i.test(s.enlace ?? '') ? s.enlace : null,
                    modalidad: s.modalidad, instructor: s.instructor?.nombre ?? 'Por asignar' }))
 }
 

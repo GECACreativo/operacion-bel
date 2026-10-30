@@ -13,6 +13,20 @@ export const fmtFecha = (iso: string) => {
   return t.charAt(0).toUpperCase() + t.slice(1)
 }
 
+
+/** Botón para conectarse a una sesión virtual o híbrida. */
+export function EnlaceSesion({ modalidad, enlace }: { modalidad: string; enlace?: string | null }) {
+  if (modalidad === 'Presencial') return null
+  if (!enlace) return <p className="mt-2 text-xs text-dagrd-navy/60">El enlace de conexión aún no está disponible.</p>
+  return (
+    <a href={enlace} target="_blank" rel="noopener noreferrer"
+      className="mt-3 inline-flex min-h-[40px] items-center gap-2 rounded-pill bg-dagrd-azul px-4 text-sm font-bold text-white hover:bg-dagrd-petroleo">
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m16 13 5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 11" /><rect x="2" y="6" width="14" height="12" rx="2" /></svg>
+      Unirse a la sesión virtual<span className="sr-only"> (se abre en una pestaña nueva)</span>
+    </a>
+  )
+}
+
 export default function MiOperacion() {
   const { rol, progreso, xp, xpMax, nivel, perfil, sesiones, companias, esElite } = useEstado()
   if (!rol || !perfil) return <SinRol nombre={perfil?.nombre} />
@@ -125,6 +139,7 @@ export default function MiOperacion() {
                   <p className="mt-1 flex items-center gap-2 text-sm text-dagrd-navy/80"><IconoCalendario className="h-4 w-4" />{fmtFecha(s.fecha)}</p>
                   <p className="mt-1 flex items-center gap-2 text-sm text-dagrd-navy/80"><IconoUbicacion className="h-4 w-4" />{s.lugar}</p>
                   <span className="mt-2 inline-block rounded-pill bg-white px-2.5 py-1 text-xs font-bold">{s.modalidad}</span>
+                  <div><EnlaceSesion modalidad={s.modalidad} enlace={s.enlace} /></div>
                 </li>
               ))}
             </ul>

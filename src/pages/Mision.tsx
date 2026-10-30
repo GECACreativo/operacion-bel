@@ -8,7 +8,7 @@ import { xpDe, xpMaxDe } from '../data/demo'
 import { MODULOS } from '../data/modulos'
 import { PARTICIPACION_TEXTO } from '../data/roles'
 import { useEstado } from '../estado'
-import { fmtFecha } from './MiOperacion'
+import { EnlaceSesion, fmtFecha } from './MiOperacion'
 import { Barra, ChipEstado, IconoEvidencia, Medalla } from '../components/UI'
 import { IconoAtras, IconoCalendario, IconoUbicacion, IconoUsuario } from '../components/Iconos'
 
@@ -310,6 +310,7 @@ export default function Mision() {
                 <li className="flex items-center gap-2"><IconoUbicacion className="h-4 w-4" />{sesion.lugar}</li>
                 <li className="flex items-center gap-2"><IconoUsuario className="h-4 w-4" />{sesion.instructor}</li>
               </ul>
+              <EnlaceSesion modalidad={sesion.modalidad} enlace={sesion.enlace} />
             </section>
           )}
 
