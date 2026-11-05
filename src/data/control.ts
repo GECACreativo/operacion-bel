@@ -135,3 +135,8 @@ export async function habilitarActividades(perfilId: string, modulo: string, mot
 export async function quitarHabilitacion(perfilId: string, modulo: string, motivo: string) {
   ok(await supabase.rpc('quitar_habilitacion', { p_perfil: perfilId, p_modulo: modulo, p_motivo: motivo }))
 }
+
+/** Elimina una sesión (solo administración): inscripciones, asistencias e historial incluidos. Queda copia en auditoría. */
+export async function eliminarSesion(id: string, motivo: string) {
+  ok(await supabase.rpc('eliminar_sesion', { p_sesion: id, p_motivo: motivo }))
+}

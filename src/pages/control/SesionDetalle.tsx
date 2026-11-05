@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  candidatos, cambiarEstadoSesion, habilitarActividades, historialSesion, quitarHabilitacion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, reprogramarSesion, retirar,
+  candidatos, cambiarEstadoSesion, habilitarActividades, eliminarSesion, historialSesion, quitarHabilitacion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, reprogramarSesion, retirar,
   suspenderSesion, type CambioEstado, type Inscrito, type SesionControl,
 } from '../../data/control'
 import { MODULOS } from '../../data/modulos'
@@ -318,6 +318,40 @@ function Reprogramar({ sesion, alCancelar }: { sesion: SesionControl; alCancelar
   )
 }
 
+function Eliminar({ sesion, inscritos, asistieron, alCancelar }: { sesion: SesionControl; inscritos: number; asistieron: number; alCancelar: () => void }) {
+  const nav = useNavigate()
+  const [motivo, setMotivo] = useState('')
+  const [entiendo, setEntiendo] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [trabajando, setTrabajando] = useState(false)
+  const enviar = async (e: FormEvent) => {
+    e.preventDefault(); setError(null)
+    if (!motivo.trim()) return setError('Escribe el motivo.')
+    setTrabajando(true)
+    try { await eliminarSesion(sesion.id, motivo.trim()); nav('/control', { replace: true }) }
+    catch (err) { setError((err as Error).message); setTrabajando(false) }
+  }
+  return (
+    <form onSubmit={enviar} className="tarjeta border-l-8 border-red-500 p-6" aria-labelledby="t-eliminar">
+      <h2 id="t-eliminar" className="text-xl font-black">Eliminar la sesión</h2>
+      <p className="mt-1 text-sm text-dagrd-navy/75">
+        Úsalo solo para sesiones de prueba o creadas por error. Se eliminan la sesión, sus {inscritos} inscripciones y sus registros de asistencia y firmas.
+        {asistieron > 0 && <strong> {asistieron} {asistieron === 1 ? 'persona tiene' : 'personas tienen'} asistencia marcada: su XP de asistencia y el estado de la misión se recalculan.</strong>}
+        {' '}Para una sesión real que no se pudo dictar, usa mejor «Cancelar» o «Suspender».
+      </p>
+      <label className="mt-3 block text-sm font-bold">Motivo *
+        <input required value={motivo} onChange={(e) => setMotivo(e.target.value)} className={campo} placeholder="Ej.: sesión de prueba" /></label>
+      <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[#00394b]" checked={entiendo} onChange={(e) => setEntiendo(e.target.checked)} />
+        Entiendo que no se puede deshacer (queda una copia en la auditoría).</label>
+      {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button type="submit" disabled={!entiendo || trabajando} className="boton bg-red-600 text-white hover:bg-red-700">{trabajando ? 'Eliminando…' : 'Eliminar sesión'}</button>
+        <button type="button" onClick={alCancelar} className="boton-fantasma">Volver</button>
+      </div>
+    </form>
+  )
+}
+
 function Cancelar({ sesion, alTerminar, alCancelar }: { sesion: SesionControl; alTerminar: () => void; alCancelar: () => void }) {
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -372,7 +406,7 @@ export default function SesionDetalle() {
   const [inscritos, setInscritos] = useState<Inscrito[]>([])
   const [error, setError] = useState<string | null>(null)
   const [editando, setEditando] = useState(false)
-  const [panel, setPanel] = useState<'suspender' | 'reprogramar' | 'cancelar' | null>(null)
+  const [panel, setPanel] = useState<'suspender' | 'reprogramar' | 'cancelar' | 'eliminar' | null>(null)
   const [version, setVersion] = useState(0)
 
   const cargar = useCallback(async () => {
@@ -431,6 +465,7 @@ export default function SesionDetalle() {
               {sesion.estado === 'programada' && resumen.si + resumen.no === 0 && (
                 <button onClick={() => setPanel('cancelar')} className="boton text-white/80 hover:bg-white/10">Cancelar sesión</button>
               )}
+              {esGestor && <button onClick={() => setPanel('eliminar')} className="boton text-white/70 hover:bg-white/10">Eliminar sesión</button>}
             </div>
           )}
         </header>
@@ -438,6 +473,7 @@ export default function SesionDetalle() {
 
       {panel === 'suspender' && <Suspender sesion={sesion} alTerminar={terminar} alCancelar={() => setPanel(null)} />}
       {panel === 'reprogramar' && <Reprogramar sesion={sesion} alCancelar={() => setPanel(null)} />}
+      {panel === 'eliminar' && <Eliminar sesion={sesion} inscritos={inscritos.length} asistieron={resumen.si} alCancelar={() => setPanel(null)} />}
       {panel === 'cancelar' && <Cancelar sesion={sesion} alTerminar={terminar} alCancelar={() => setPanel(null)} />}
 
       {(sesion.estado === 'suspendida' || sesion.estado === 'cancelada') && (
