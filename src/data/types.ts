@@ -66,6 +66,8 @@ export interface ProgresoMision {
 export interface Sesion {
   id: string
   codigo: string
+  /** Todas las misiones de la sesión (más de una en una sesión libre) */
+  codigos: string[]
   fecha: string // ISO
   lugar: string
   modalidad: Modalidad

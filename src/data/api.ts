@@ -89,12 +89,12 @@ export async function cargarRuta(perfilId: string): Promise<ProgresoMision[]> {
 
 export async function cargarSesiones(perfilId: string): Promise<Sesion[]> {
   const filas = chequear(await supabase.from('inscripciones')
-    .select('sesion:sesion_id(id, modulo_codigo, inicio, lugar, enlace, modalidad, estado, instructor:instructor_id(nombre))')
+    .select('sesion:sesion_id(id, modulo_codigo, modulos_extra, inicio, lugar, enlace, modalidad, estado, instructor:instructor_id(nombre))')
     .eq('perfil_id', perfilId)) as any[]
   const ahora = Date.now()
   return filas.map((f) => f.sesion).filter((s) => s && s.estado === 'programada' && new Date(s.inicio).getTime() > ahora - 3 * 3600e3)
     .sort((a, b) => a.inicio.localeCompare(b.inicio))
-    .map((s) => ({ id: s.id, codigo: s.modulo_codigo, fecha: s.inicio, lugar: s.lugar ?? (s.modalidad === 'Virtual' ? 'Virtual' : 'Por confirmar'),
+    .map((s) => ({ id: s.id, codigo: s.modulo_codigo, codigos: [s.modulo_codigo, ...(s.modulos_extra ?? [])], fecha: s.inicio, lugar: s.lugar ?? (s.modalidad === 'Virtual' ? 'Virtual' : 'Por confirmar'),
                    enlace: /^https?:\/\//i.test(s.enlace ?? '') ? s.enlace : null,
                    modalidad: s.modalidad, instructor: s.instructor?.nombre ?? 'Por asignar' }))
 }

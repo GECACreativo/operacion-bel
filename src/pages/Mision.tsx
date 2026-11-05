@@ -140,7 +140,7 @@ export default function Mision() {
   const aprobada = p.estado === 'aprobada' || p.estado === 'convalidada'
   const conAsistencia = p.evidencias.find((e) => e.tipo === 'asistencia')?.estado === 'validada' || !!p.habilitacion
   const paso = pasoActual(p.evidencias, aprobada)
-  const sesion = sesiones.find((s) => s.codigo === codigo)
+  const sesion = sesiones.find((s) => s.codigos.includes(codigo))
 
   return (
     <article className="space-y-6">

@@ -80,6 +80,7 @@ export function sesionesDemo(progreso: ProgresoMision[]): Sesion[] {
   const proximas = progreso.filter((p) => p.estado === 'en_curso' || p.estado === 'disponible')
   return proximas.map((p, i) => ({
     id: `s${i}`,
+    codigos: [p.codigo],
     codigo: p.codigo,
     fecha: i === 0 ? '2026-10-23T08:00:00' : '2026-10-28T14:00:00',
     lugar: MODULOS[p.codigo].modalidad === 'Virtual' ? 'Sesión virtual (enlace en la plataforma)' : 'Centro de Formación · Aula 2',

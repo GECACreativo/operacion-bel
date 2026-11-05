@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  candidatos, cambiarEstadoSesion, habilitarActividades, eliminarSesion, historialSesion, quitarHabilitacion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, reprogramarSesion, retirar,
+  candidatos, cambiarEstadoSesion, misionesDe, habilitarActividades, eliminarSesion, historialSesion, quitarHabilitacion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, reprogramarSesion, retirar,
   suspenderSesion, type CambioEstado, type Inscrito, type SesionControl,
 } from '../../data/control'
 import { MODULOS } from '../../data/modulos'
@@ -78,8 +78,8 @@ function EvaluarReto({ i, modulo, alGuardar }: { i: Inscrito; modulo: string; al
   )
 }
 
-function FilaAsistencia({ i, sesion, alCambiar, puedeRetirar }: {
-  i: Inscrito; sesion: SesionControl; alCambiar: () => void; puedeRetirar: boolean
+function FilaAsistencia({ i, sesion, modulo, alCambiar, puedeRetirar }: {
+  i: Inscrito; sesion: SesionControl; modulo: string; alCambiar: () => void; puedeRetirar: boolean
 }) {
   const { perfil, esGestor, recargar } = useEstado()
   const [corrigiendo, setCorrigiendo] = useState<boolean | null>(null) // valor nuevo pendiente de motivo
@@ -97,8 +97,8 @@ function FilaAsistencia({ i, sesion, alCambiar, puedeRetirar }: {
     e.preventDefault(); if (!motivoHab.trim()) return
     setOcupado(true); setError(null)
     try {
-      if (i.habilitada) await quitarHabilitacion(i.perfil_id, sesion.modulo_codigo, motivoHab.trim())
-      else await habilitarActividades(i.perfil_id, sesion.modulo_codigo, motivoHab.trim())
+      if (i.habilitada) await quitarHabilitacion(i.perfil_id, modulo, motivoHab.trim())
+      else await habilitarActividades(i.perfil_id, modulo, motivoHab.trim())
       setHabilitando(false); setMotivoHab(''); alCambiar()
     } catch (err) { setError((err as Error).message) }
     setOcupado(false)
@@ -136,13 +136,13 @@ function FilaAsistencia({ i, sesion, alCambiar, puedeRetirar }: {
           {!esPropia && (asistenciaCuenta || i.habilitada) && (
             <button onClick={() => setEvaluando(!evaluando)} aria-expanded={evaluando}
               className="min-h-[40px] rounded-pill border border-dagrd-navy/20 px-4 text-sm font-bold hover:bg-[#efefed]">
-              {evaluando ? 'Cerrar reto' : 'Evaluar reto'}
+              {evaluando ? 'Cerrar reto' : misionesDe(sesion).length > 1 ? `Evaluar reto ${modulo}` : 'Evaluar reto'}
             </button>
           )}
           {esGestor && !asistenciaCuenta && (
             <button onClick={() => setHabilitando(!habilitando)} aria-expanded={habilitando}
               className={`min-h-[40px] rounded-pill px-4 text-sm font-bold ${i.habilitada ? 'border border-dagrd-navy/20 hover:bg-[#efefed]' : 'bg-dagrd-amarillo text-dagrd-navy hover:bg-dagrd-amarillo/80'}`}>
-              {i.habilitada ? 'Quitar habilitación' : 'Habilitar actividades'}
+              {i.habilitada ? 'Quitar habilitación' : misionesDe(sesion).length > 1 ? `Habilitar ${modulo}` : 'Habilitar actividades'}
             </button>
           )}
           {puedeRetirar && i.presente === null && !i.habilitada && (
@@ -154,7 +154,7 @@ function FilaAsistencia({ i, sesion, alCambiar, puedeRetirar }: {
       {i.presente === true && (i.firmado_en
         ? <p className="mt-1 text-xs font-bold text-dagrd-petroleo">✓ Firmó su asistencia · {new Date(i.firmado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</p>
         : <p className="mt-1 text-xs text-dagrd-navy/60">Pendiente de firma: la persona firma desde su cuenta en Operación BEL.</p>)}
-      {i.habilitada && <p className="mt-1 text-xs font-bold text-dagrd-azul">Actividades habilitadas manualmente por administración.</p>}
+      {i.habilitada && <p className="mt-1 text-xs font-bold text-dagrd-azul">Actividades de {modulo} habilitadas manualmente por administración.</p>}
       {habilitando && (
         <form onSubmit={cambiarHabilitacion} className="mt-3 rounded-2xl bg-dagrd-amarillo/20 p-3">
           <label className="block text-sm"><span className="font-bold">{i.habilitada ? 'Motivo para quitar la habilitación' : 'Motivo de la habilitación manual'}</span>
@@ -186,7 +186,7 @@ function FilaAsistencia({ i, sesion, alCambiar, puedeRetirar }: {
           </div>
         </form>
       )}
-      {evaluando && <EvaluarReto i={i} modulo={sesion.modulo_codigo} alGuardar={alCambiar} />}
+      {evaluando && <EvaluarReto key={modulo} i={i} modulo={modulo} alGuardar={alCambiar} />}
       {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
     </li>
   )
@@ -197,7 +197,8 @@ function Inscribir({ sesion, inscritos, alInscribir }: { sesion: SesionControl; 
   const [busqueda, setBusqueda] = useState('')
   const [elegidos, setElegidos] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => { candidatos(sesion.modulo_codigo).then(setLista).catch((e) => setError(e.message)) }, [sesion.modulo_codigo])
+  const misiones = misionesDe(sesion)
+  useEffect(() => { candidatos(misiones).then(setLista).catch((e) => setError(e.message)) }, [misiones.join()]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ya = new Set(inscritos.map((i) => i.perfil_id))
   const q = busqueda.trim().toLowerCase()
@@ -213,7 +214,7 @@ function Inscribir({ sesion, inscritos, alInscribir }: { sesion: SesionControl; 
   return (
     <section className="tarjeta p-6" aria-labelledby="t-inscribir">
       <h2 id="t-inscribir" className="text-xl font-black">Inscribir participantes</h2>
-      <p className="mt-1 text-sm text-dagrd-navy/70">Solo aparecen personas cuyo rol BEL incluye {sesion.modulo_codigo}.</p>
+      <p className="mt-1 text-sm text-dagrd-navy/70">Solo aparecen personas cuyo rol BEL incluye {misiones.length > 1 ? `alguna de las misiones (${misiones.join(', ')})` : sesion.modulo_codigo}.</p>
       <input type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre, correo o rol"
         aria-label="Buscar participantes" className="mt-4 block min-h-[44px] w-full rounded-xl border border-dagrd-navy/20 px-3 text-sm" />
       {lista === null && !error && <p role="status" className="mt-3 text-sm">Cargando…</p>}
@@ -298,7 +299,7 @@ function Reprogramar({ sesion, alCancelar }: { sesion: SesionControl; alCancelar
   return (
     <form onSubmit={enviar} className="tarjeta border-l-8 border-dagrd-amarillo p-6" aria-labelledby="t-reprogramar">
       <h2 id="t-reprogramar" className="text-xl font-black">Reprogramar la sesión</h2>
-      <p className="mt-1 text-sm text-dagrd-navy/70">Se crea una nueva sesión de {sesion.modulo_codigo} con las mismas personas inscritas. Esta sesión queda enlazada a la nueva.</p>
+      <p className="mt-1 text-sm text-dagrd-navy/70">Se crea una nueva sesión de {misionesDe(sesion).join(' + ')} con las mismas personas inscritas. Esta sesión queda enlazada a la nueva.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <label><span className="text-sm font-bold">Nuevo inicio *</span>
           <input type="datetime-local" required min={ahora} value={f.inicio} onChange={(e) => setF({ ...f, inicio: e.target.value })} className={campo} /></label>
@@ -408,11 +409,18 @@ export default function SesionDetalle() {
   const [editando, setEditando] = useState(false)
   const [panel, setPanel] = useState<'suspender' | 'reprogramar' | 'cancelar' | 'eliminar' | null>(null)
   const [version, setVersion] = useState(0)
+  // En una sesión libre, misión sobre la que se evalúa el reto o se habilita manualmente
+  const [mision, setMision] = useState<string | null>(null)
 
   const cargar = useCallback(async () => {
-    try { const s = await obtenerSesion(id); setSesion(s); setInscritos(await listarInscritos(id, s.modulo_codigo)); setVersion((v) => v + 1) } catch (e) { setError((e as Error).message) }
-  }, [id])
-  useEffect(() => { setPanel(null); setEditando(false) }, [id])
+    try {
+      const s = await obtenerSesion(id); setSesion(s)
+      const lista = misionesDe(s); const actual = mision && lista.includes(mision) ? mision : s.modulo_codigo
+      if (actual !== mision) setMision(actual)
+      setInscritos(await listarInscritos(id, actual)); setVersion((v) => v + 1)
+    } catch (e) { setError((e as Error).message) }
+  }, [id, mision])
+  useEffect(() => { setPanel(null); setEditando(false); setMision(null) }, [id])
   useEffect(() => { cargar() }, [cargar])
 
   const resumen = useMemo(() => ({
@@ -424,6 +432,9 @@ export default function SesionDetalle() {
   if (error) return <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-800">{error}</p>
   if (!sesion) return <p role="status">Cargando sesión…</p>
   const m = MODULOS[sesion.modulo_codigo]
+  const misiones = misionesDe(sesion)
+  const libre = misiones.length > 1
+  const misionActiva = mision ?? sesion.modulo_codigo
   const gestiona = esGestor || sesion.instructor_id === perfil?.id
 
   const estado = async (e: 'programada' | 'realizada') => {
@@ -442,8 +453,14 @@ export default function SesionDetalle() {
         <FormularioSesion inicial={sesion} alGuardar={() => { setEditando(false); cargar() }} alCancelar={() => setEditando(false)} />
       ) : (
         <header className="rounded-3xl bg-dagrd-fondo p-6 text-white sm:p-8">
-          <p className="etiqueta text-dagrd-amarillo">{sesion.modulo_codigo} · {m?.nombre} · {ETIQUETA_ESTADO[sesion.estado]}</p>
-          <h1 className="mt-1 text-2xl font-black sm:text-3xl">{m?.mision}</h1>
+          {libre ? (<>
+            <p className="etiqueta text-dagrd-amarillo">Sesión libre · {misiones.length} misiones · {ETIQUETA_ESTADO[sesion.estado]}</p>
+            <h1 className="mt-1 text-2xl font-black sm:text-3xl">{misiones.join(' + ')}</h1>
+            <p className="mt-1 text-white/80">{misiones.map((c) => MODULOS[c]?.nombre ?? c).join(' · ')}</p>
+          </>) : (<>
+            <p className="etiqueta text-dagrd-amarillo">{sesion.modulo_codigo} · {m?.nombre} · {ETIQUETA_ESTADO[sesion.estado]}</p>
+            <h1 className="mt-1 text-2xl font-black sm:text-3xl">{m?.mision}</h1>
+          </>)}
           <p className="mt-2 text-white/80">{fmtFecha(sesion.inicio)} · {sesion.modalidad}</p>
           <p className="text-white/80">{sesion.lugar ?? ''}{sesion.lugar && sesion.enlace ? ' · ' : ''}
             {sesion.enlace && <a href={sesion.enlace} target="_blank" rel="noreferrer" className="underline">Enlace de conexión</a>}</p>
@@ -496,15 +513,30 @@ export default function SesionDetalle() {
           </div>
           <div className="mt-3">
             <DescargasAsistencia filtro={{ sesion: sesion.id }} deshabilitado={inscritos.length === 0}
-              nombre={`asistencia-${sesion.modulo_codigo}-${sesion.inicio.slice(0, 10)}`} />
+              nombre={`asistencia-${misiones.join('-')}-${sesion.inicio.slice(0, 10)}`} />
           </div>
           <p className="mt-1 text-xs text-dagrd-navy/60">
-            Al marcar «Asistió» se habilitan las actividades de la misión para la persona y se otorgan {sesion.modulo_codigo === 'RI' ? 0 : 20} XP una sola vez por misión. La asistencia sola no aprueba la misión.
+            {libre
+              ? <>Al marcar «Asistió» se habilitan las actividades de <strong>todas las misiones de la sesión ({misiones.join(', ')})</strong> para la persona y se otorgan 20 XP de asistencia por cada misión (una sola vez por misión). La asistencia sola no aprueba las misiones.</>
+              : <>Al marcar «Asistió» se habilitan las actividades de la misión para la persona y se otorgan {sesion.modulo_codigo === 'RI' ? 0 : 20} XP una sola vez por misión. La asistencia sola no aprueba la misión.</>}
           </p>
+          {libre && (
+            <div className="mt-3 rounded-2xl bg-[#f7f7f5] p-3">
+              <p id="t-mision-activa" className="text-sm font-bold">Misión para evaluar el reto y la habilitación manual</p>
+              <div role="radiogroup" aria-labelledby="t-mision-activa" className="mt-2 flex flex-wrap gap-2">
+                {misiones.map((c) => (
+                  <button key={c} type="button" role="radio" aria-checked={misionActiva === c} onClick={() => setMision(c)}
+                    className={`min-h-[40px] rounded-pill px-4 text-sm font-bold ${misionActiva === c ? 'bg-dagrd-navy text-white' : 'bg-white text-dagrd-navy ring-1 ring-dagrd-navy/15 hover:bg-[#efefed]'}`}>
+                    {c} · {MODULOS[c]?.nombre ?? c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {inscritos.length === 0
             ? <p className="mt-4 text-sm text-dagrd-navy/70">Todavía no hay participantes inscritos.</p>
             : <ul className="mt-2 divide-y divide-dagrd-navy/10">
-                {inscritos.map((i) => <FilaAsistencia key={i.perfil_id} i={i} sesion={sesion} alCambiar={cargar} puedeRetirar={gestiona} />)}
+                {inscritos.map((i) => <FilaAsistencia key={i.perfil_id} i={i} sesion={sesion} modulo={misionActiva} alCambiar={cargar} puedeRetirar={gestiona} />)}
               </ul>}
         </section>
         <div className="space-y-6">

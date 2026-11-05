@@ -129,7 +129,7 @@ export function FirmasPendientes({ modulo }: { modulo?: string }) {
   const [lista, setLista] = useState<FirmaPendiente[]>([])
   const [abierta, setAbierta] = useState<string | null>(null)
   const [listo, setListo] = useState<string | null>(null)
-  const cargar = () => firmasPendientes().then((l) => setLista(modulo ? l.filter((x) => x.modulo_codigo === modulo) : l)).catch(() => setLista([]))
+  const cargar = () => firmasPendientes().then((l) => setLista(modulo ? l.filter((x) => x.modulo_codigo.split(', ').includes(modulo)) : l)).catch(() => setLista([]))
   useEffect(() => { cargar() }, [modulo]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!lista.length && !listo) return null
   return (

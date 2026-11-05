@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { descargarExcel, imprimir, listaAsistencia } from '../../data/asistencia'
 import { Link, useNavigate } from 'react-router-dom'
-import { guardarSesion, listarInstructores, listarSesiones, type NuevaSesion, type SesionControl } from '../../data/control'
+import { guardarSesion, listarInstructores, misionesDe, listarSesiones, type NuevaSesion, type SesionControl } from '../../data/control'
 import { MODULOS, ORDEN_FORMACION } from '../../data/modulos'
 import { useEstado } from '../../estado'
 import { fmtFecha } from '../MiOperacion'
@@ -30,6 +30,12 @@ export function FormularioSesion({ inicial, alGuardar, alCancelar }: {
     cupo: inicial?.cupo?.toString() ?? '',
     instructor_id: inicial?.instructor_id ?? perfil?.id ?? '',
   })
+  // Sesión libre: varias misiones en un mismo encuentro
+  const [libre, setLibre] = useState((inicial?.modulos_extra?.length ?? 0) > 0)
+  const [seleccion, setSeleccion] = useState<string[]>(inicial ? misionesDe(inicial) : ['M00'])
+  const elegidas = ORDEN_FORMACION.filter((c) => seleccion.includes(c))
+  const alternar = (c: string) => setSeleccion(seleccion.includes(c) ? seleccion.filter((x) => x !== c) : [...seleccion, c])
+  const horasPlan = elegidas.reduce((t, c) => t + (MODULOS[c]?.duracionH ?? 0), 0)
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   useEffect(() => { listarInstructores().then(setInstructores).catch(() => {}) }, [])
@@ -41,8 +47,9 @@ export function FormularioSesion({ inicial, alGuardar, alCancelar }: {
     if (new Date(f.fin) <= new Date(f.inicio)) return setError('La hora de fin debe ser posterior a la de inicio.')
     if (f.modalidad !== 'Presencial' && !f.enlace.trim()) return setError('Las sesiones virtuales o híbridas necesitan el enlace de conexión.')
     if (f.modalidad !== 'Virtual' && !f.lugar.trim()) return setError('Indica el lugar de la sesión presencial.')
+    if (libre && elegidas.length < 2) return setError('Una sesión libre necesita al menos dos misiones. Si es una sola, desmarca «Sesión libre».')
     const datos: NuevaSesion = {
-      modulo_codigo: f.modulo_codigo, modalidad: f.modalidad,
+      modulo_codigo: libre ? elegidas[0] : f.modulo_codigo, modulos_extra: libre ? elegidas.slice(1) : [], modalidad: f.modalidad,
       inicio: new Date(f.inicio).toISOString(), fin: new Date(f.fin).toISOString(),
       lugar: f.lugar.trim() || null, enlace: f.enlace.trim() || null,
       cupo: f.cupo ? Number(f.cupo) : null, instructor_id: f.instructor_id || null,
@@ -56,17 +63,40 @@ export function FormularioSesion({ inicial, alGuardar, alCancelar }: {
     <form onSubmit={enviar} className="tarjeta p-6" aria-labelledby="t-form-sesion">
       <h2 id="t-form-sesion" className="text-xl font-black">{inicial ? 'Editar sesión' : 'Programar una sesión'}</h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <label className="sm:col-span-2"><span className="text-sm font-bold">Misión</span>
-          <select className={campo} value={f.modulo_codigo}
-            onChange={(e) => setF({ ...f, modulo_codigo: e.target.value, modalidad: MODULOS[e.target.value].modalidad })}>
-            {ORDEN_FORMACION.map((c) => <option key={c} value={c}>{c} · {MODULOS[c].nombre} — {MODULOS[c].mision}</option>)}
-          </select>
-        </label>
+        <div className="sm:col-span-2">
+          <label className="flex items-start gap-3 rounded-2xl bg-[#f7f7f5] p-3 text-sm">
+            <input type="checkbox" className="mt-0.5 h-5 w-5 accent-[#00394b]" checked={libre}
+              onChange={(e) => { setLibre(e.target.checked); if (e.target.checked) setSeleccion([f.modulo_codigo]) }} />
+            <span><span className="font-bold">Sesión libre (varias misiones)</span>
+              <span className="block text-xs text-dagrd-navy/70">Asocia dos o más misiones al mismo encuentro. Al marcar la asistencia, a cada participante se le habilitan las actividades de todas esas misiones.</span></span>
+          </label>
+        </div>
+        {!libre ? (
+          <label className="sm:col-span-2"><span className="text-sm font-bold">Misión</span>
+            <select className={campo} value={f.modulo_codigo}
+              onChange={(e) => setF({ ...f, modulo_codigo: e.target.value, modalidad: MODULOS[e.target.value].modalidad })}>
+              {ORDEN_FORMACION.map((c) => <option key={c} value={c}>{c} · {MODULOS[c].nombre} — {MODULOS[c].mision}</option>)}
+            </select>
+          </label>
+        ) : (
+          <fieldset className="sm:col-span-2">
+            <legend className="text-sm font-bold">Misiones de la sesión <span className="font-medium text-dagrd-navy/60">({elegidas.length} elegidas)</span></legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {ORDEN_FORMACION.map((c) => (
+                <label key={c} className={`flex min-h-[44px] items-center gap-2 rounded-xl border px-3 py-2 text-sm ${seleccion.includes(c) ? 'border-dagrd-petroleo bg-dagrd-petroleo/10' : 'border-dagrd-navy/15'}`}>
+                  <input type="checkbox" className="h-4 w-4 accent-[#00394b]" checked={seleccion.includes(c)} onChange={() => alternar(c)} />
+                  <span><span className="font-bold">{c}</span> · {MODULOS[c].nombre}</span>
+                </label>
+              ))}
+            </div>
+            {elegidas.length > 0 && <p className="mt-2 text-xs text-dagrd-navy/70">Se habilitarán: <strong>{elegidas.join(' + ')}</strong>. Duración sugerida por el plan: {horasPlan.toString().replace('.', ',')} h.</p>}
+          </fieldset>
+        )}
         <label><span className="text-sm font-bold">Modalidad</span>
           <select className={campo} value={f.modalidad} onChange={set('modalidad')}>
             {['Presencial', 'Virtual', 'Híbrida'].map((m) => <option key={m}>{m}</option>)}
           </select>
-          <span className="mt-1 block text-xs text-dagrd-navy/60">El plan sugiere: {MODULOS[f.modulo_codigo].modalidad}, {MODULOS[f.modulo_codigo].duracionH.toString().replace('.', ',')} h</span>
+          {!libre && <span className="mt-1 block text-xs text-dagrd-navy/60">El plan sugiere: {MODULOS[f.modulo_codigo].modalidad}, {MODULOS[f.modulo_codigo].duracionH.toString().replace('.', ',')} h</span>}
         </label>
         <label><span className="text-sm font-bold">Instructor</span>
           <select className={campo} value={f.instructor_id} onChange={set('instructor_id')} disabled={!esGestor}>
@@ -200,10 +230,10 @@ export default function Sesiones() {
           <li key={s.id}>
             <Link to={`/control/sesion/${s.id}`} className="tarjeta block p-5 transition-shadow hover:shadow-lg">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="etiqueta text-dagrd-navy/60">{s.modulo_codigo} · {MODULOS[s.modulo_codigo]?.nombre}</span>
+                <span className="etiqueta text-dagrd-navy/60">{s.modulos_extra.length ? `${misionesDe(s).join(' + ')} · Sesión libre` : `${s.modulo_codigo} · ${MODULOS[s.modulo_codigo]?.nombre}`}</span>
                 <span className={`rounded-pill px-2.5 py-1 text-xs font-bold capitalize ${ESTADO_SESION[s.estado]}`}>{s.estado}</span>
               </div>
-              <p className="mt-2 text-lg font-black">{MODULOS[s.modulo_codigo]?.mision}</p>
+              <p className="mt-2 text-lg font-black">{s.modulos_extra.length ? misionesDe(s).map((c) => MODULOS[c]?.nombre ?? c).join(' · ') : MODULOS[s.modulo_codigo]?.mision}</p>
               <ul className="mt-3 space-y-1.5 text-sm text-dagrd-navy/80">
                 <li className="flex items-center gap-2"><IconoCalendario className="h-4 w-4" />{fmtFecha(s.inicio)}</li>
                 <li className="flex items-center gap-2"><IconoUbicacion className="h-4 w-4" />{s.modalidad} · {s.lugar ?? 'Virtual'}</li>

@@ -135,7 +135,11 @@ export default function MiOperacion() {
             <ul className="mt-4 space-y-3">
               {sesiones.map((s) => (
                 <li key={s.id} className="rounded-2xl bg-[#efefed] p-4">
-                  <p className="font-bold">{s.codigo} · {MODULOS[s.codigo].nombre}</p>
+                  {s.codigos.length > 1 ? (<>
+                    <p className="etiqueta text-dagrd-azul">Sesión libre · {s.codigos.length} misiones</p>
+                    <p className="font-bold">{s.codigos.join(' + ')}</p>
+                    <p className="text-xs text-dagrd-navy/70">{s.codigos.map((c) => MODULOS[c]?.nombre ?? c).join(' · ')}</p>
+                  </>) : <p className="font-bold">{s.codigo} · {MODULOS[s.codigo].nombre}</p>}
                   <p className="mt-1 flex items-center gap-2 text-sm text-dagrd-navy/80"><IconoCalendario className="h-4 w-4" />{fmtFecha(s.fecha)}</p>
                   <p className="mt-1 flex items-center gap-2 text-sm text-dagrd-navy/80"><IconoUbicacion className="h-4 w-4" />{s.lugar}</p>
                   <span className="mt-2 inline-block rounded-pill bg-white px-2.5 py-1 text-xs font-bold">{s.modalidad}</span>

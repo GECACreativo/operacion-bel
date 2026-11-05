@@ -17,6 +17,8 @@ const traducir = (m: string) =>
 export interface SesionControl {
   id: string
   modulo_codigo: string
+  /** Sesión libre: misiones adicionales a la principal. Todas se habilitan con la asistencia. */
+  modulos_extra: string[]
   modalidad: Modalidad
   inicio: string
   fin: string
@@ -45,8 +47,8 @@ export interface Inscrito {
   firmado_en: string | null // el participante firmó su asistencia
 }
 
-const CAMPOS = 'id, modulo_codigo, modalidad, inicio, fin, lugar, enlace, cupo, estado, temas_abordados, temas_pendientes, observaciones_estado, sesion_origen_id, reprogramada_en_id, instructor_id, instructor:instructor_id(nombre), inscripciones(count)'
-const mapear = (s: any): SesionControl => ({ ...s, instructor: s.instructor?.nombre ?? null, inscritos: s.inscripciones?.[0]?.count ?? 0 })
+const CAMPOS = 'id, modulo_codigo, modulos_extra, modalidad, inicio, fin, lugar, enlace, cupo, estado, temas_abordados, temas_pendientes, observaciones_estado, sesion_origen_id, reprogramada_en_id, instructor_id, instructor:instructor_id(nombre), inscripciones(count)'
+const mapear = (s: any): SesionControl => ({ ...s, modulos_extra: s.modulos_extra ?? [], instructor: s.instructor?.nombre ?? null, inscritos: s.inscripciones?.[0]?.count ?? 0 })
 
 export async function listarSesiones(soloMias: string | null): Promise<SesionControl[]> {
   let q = supabase.from('sesiones').select(CAMPOS).order('inicio', { ascending: false })
@@ -58,7 +60,10 @@ export async function obtenerSesion(id: string): Promise<SesionControl> {
   return mapear(ok(await supabase.from('sesiones').select(CAMPOS).eq('id', id).single()))
 }
 
-export type NuevaSesion = Pick<SesionControl, 'modulo_codigo' | 'modalidad' | 'inicio' | 'fin' | 'lugar' | 'enlace' | 'cupo' | 'instructor_id'>
+/** Todas las misiones de una sesión (principal + adicionales de una sesión libre). */
+export const misionesDe = (s: Pick<SesionControl, 'modulo_codigo' | 'modulos_extra'>) => [s.modulo_codigo, ...(s.modulos_extra ?? [])]
+
+export type NuevaSesion = Pick<SesionControl, 'modulo_codigo' | 'modulos_extra' | 'modalidad' | 'inicio' | 'fin' | 'lugar' | 'enlace' | 'cupo' | 'instructor_id'>
 
 export async function guardarSesion(datos: NuevaSesion, id?: string) {
   const q = id ? supabase.from('sesiones').update(datos).eq('id', id).select('id').single()
@@ -94,7 +99,7 @@ export async function listarInscritos(sesionId: string, modulo: string): Promise
     .select('perfil_id, perfil:perfil_id(nombre, correo, rol_bel_id, rol:rol_bel_id(nombre))').eq('sesion_id', sesionId)) as any[]
   const asis = ok(await supabase.from('asistencias').select('perfil_id, presente, firmado_en').eq('sesion_id', sesionId)) as any[]
   const ids = ins.map((i) => i.perfil_id)
-  const habs = ids.length ? ok(await supabase.from('habilitaciones').select('perfil_id').eq('modulo_codigo', modulo)
+  const habs = ids.length && modulo ? ok(await supabase.from('habilitaciones').select('perfil_id').eq('modulo_codigo', modulo)
     .is('revocada_en', null).in('perfil_id', ids)) as any[] : []
   return ins.map((i) => ({
     perfil_id: i.perfil_id, nombre: i.perfil?.nombre ?? '—', correo: i.perfil?.correo ?? '', rol: i.perfil?.rol?.nombre ?? null, rol_id: i.perfil?.rol_bel_id ?? null,
@@ -104,9 +109,10 @@ export async function listarInscritos(sesionId: string, modulo: string): Promise
   })).sort((a, b) => a.nombre.localeCompare(b.nombre))
 }
 
-/** Personas cuyo rol BEL incluye la misión de la sesión (candidatas a inscribir). */
-export async function candidatos(modulo: string): Promise<{ id: string; nombre: string; correo: string; rol: string }[]> {
-  const roles = (ok(await supabase.from('rol_modulo').select('rol_bel_id').eq('modulo_codigo', modulo)) as any[]).map((r) => r.rol_bel_id)
+/** Personas cuyo rol BEL incluye alguna de las misiones de la sesión (candidatas a inscribir). */
+export async function candidatos(modulos: string[]): Promise<{ id: string; nombre: string; correo: string; rol: string }[]> {
+  const roles = (ok(await supabase.from('rol_modulo').select('rol_bel_id').in('modulo_codigo', modulos)) as any[]).map((r) => r.rol_bel_id)
+    .filter((v, i, a) => a.indexOf(v) === i)
   if (!roles.length) return []
   // Incluye a quienes tienen el rol como principal o como rol adicional
   const filas = ok(await supabase.from('perfiles').select('id, nombre, correo, rol:rol_bel_id(nombre)')
