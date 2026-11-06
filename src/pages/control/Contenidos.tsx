@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  actualizarCuestionario, activarCriterio, borrarCriterio, borrarOpcion, criteriosAdmin, crearCuestionario, cuestionarioAdmin, guardarCriterio, guardarPregunta, rolesDelModulo,
-  type CriterioAdmin, type CuestionarioAdmin, type PreguntaAdmin,
+  actualizarCuestionario, activarCriterio, borrarCriterio, borrarOpcion, criteriosAdmin, crearCuestionario, cuestionarioAdmin, cuestionariosAdmin, guardarCriterio, guardarPregunta, rolesDelModulo,
+  type CriterioAdmin, type CuestionarioAdmin, type CuestionarioResumen, type PreguntaAdmin,
 } from '../../data/contenidos'
 import { MODULOS, ORDEN_FORMACION } from '../../data/modulos'
 import ControlNav from './ControlNav'
@@ -88,12 +88,89 @@ function EditorPregunta({ p: inicial, cuestionarioId, nueva, alGuardar, alCambia
   )
 }
 
+type Rol = { id: string; nombre: string }
+const publico = (c: { roles_bel: string[] | null }, roles: Rol[]) =>
+  c.roles_bel ? c.roles_bel.map((id) => roles.find((r) => r.id === id)?.nombre ?? id).join(', ') : 'Todos los roles de la misión'
+
+/** Cuestionarios de la misión: el general y los dirigidos a roles específicos. */
 function EditorCuestionario({ modulo }: { modulo: string }) {
+  const [lista, setLista] = useState<CuestionarioResumen[] | null>(null)
+  const [roles, setRoles] = useState<Rol[]>([])
+  const [sel, setSel] = useState<string | null>(null)
+  const [creando, setCreando] = useState(false)
+  const [nuevoRoles, setNuevoRoles] = useState<string[]>([])
+  const [nuevoTitulo, setNuevoTitulo] = useState('')
+  const [aviso, setAviso] = useState<Aviso>(null)
+  const cargar = useCallback(async (elegir?: string) => {
+    try {
+      const l = await cuestionariosAdmin(modulo); setLista(l)
+      setSel((s) => elegir ?? (s && l.some((c) => c.id === s) ? s : l[0]?.id ?? null))
+    } catch (e) { setAviso({ tipo: 'error', texto: (e as Error).message }) }
+  }, [modulo])
+  useEffect(() => { setLista(null); setSel(null); setCreando(false); cargar(); rolesDelModulo(modulo).then(setRoles).catch(() => {}) }, [modulo, cargar])
+
+  const crear = async (rolesElegidos: string[] | null, titulo: string) => {
+    setAviso(null)
+    try { const id = await crearCuestionario(modulo, titulo, rolesElegidos); setCreando(false); setNuevoRoles([]); setNuevoTitulo(''); cargar(id) }
+    catch (e) { setAviso({ tipo: 'error', texto: (e as Error).message }) }
+  }
+
+  if (!lista) return aviso ? <AvisoTxt a={aviso} /> : <p role="status">Cargando…</p>
+  const hayGeneral = lista.some((c) => !c.roles_bel)
+
+  return (
+    <div className="space-y-4">
+      <section className="tarjeta p-5" aria-labelledby="t-cuestionarios">
+        <h2 id="t-cuestionarios" className="text-lg font-black">Cuestionarios de la misión</h2>
+        <p className="mt-1 text-sm text-dagrd-navy/70">Cada persona responde uno solo: el dirigido a su rol si todos sus roles en esta misión están incluidos; si no, el general.</p>
+        {lista.length > 0 && (
+          <div role="tablist" aria-label="Cuestionarios" className="mt-3 flex flex-wrap gap-2">
+            {lista.map((c) => (
+              <button key={c.id} role="tab" aria-selected={sel === c.id} onClick={() => setSel(c.id)}
+                className={`min-h-[44px] rounded-2xl px-4 py-2 text-left text-sm ${sel === c.id ? 'bg-dagrd-navy text-white' : 'bg-[#efefed] text-dagrd-navy hover:bg-dagrd-gris/60'}`}>
+                <span className="block font-bold">{c.titulo}</span>
+                <span className={`block text-xs ${sel === c.id ? 'text-white/75' : 'text-dagrd-navy/60'}`}>{c.roles_bel ? `Solo: ${publico(c, roles)}` : 'General · todos los roles'}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {!hayGeneral && <button className="boton-primario" onClick={() => crear(null, MODULOS[modulo].mision)}>Crear cuestionario general</button>}
+          {!creando && <button className="boton-secundario" onClick={() => setCreando(true)}>+ Cuestionario para roles específicos</button>}
+        </div>
+        {creando && (
+          <form className="mt-3 rounded-2xl bg-[#f7f7f5] p-4" onSubmit={(e) => { e.preventDefault(); if (nuevoRoles.length && nuevoTitulo.trim()) crear(nuevoRoles, nuevoTitulo.trim()) }}>
+            <label className="block text-sm font-bold">Título<input required className={`${campo} mt-1`} value={nuevoTitulo} onChange={(e) => setNuevoTitulo(e.target.value)} /></label>
+            <fieldset className="mt-3"><legend className="text-sm font-bold">Dirigido a</legend>
+              <div className="mt-1 grid gap-1 sm:grid-cols-2">
+                {roles.map((r) => (
+                  <label key={r.id} className="flex min-h-[40px] items-center gap-2 text-sm">
+                    <input type="checkbox" className="h-4 w-4 accent-[#00394b]" checked={nuevoRoles.includes(r.id)}
+                      onChange={(e) => setNuevoRoles(e.target.checked ? [...nuevoRoles, r.id] : nuevoRoles.filter((x) => x !== r.id))} />{r.nombre}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="mt-3 flex gap-2">
+              <button type="submit" disabled={!nuevoRoles.length || !nuevoTitulo.trim()} className="boton-secundario min-h-[36px]">Crear</button>
+              <button type="button" onClick={() => setCreando(false)} className="boton-fantasma min-h-[36px]">Cancelar</button>
+            </div>
+          </form>
+        )}
+        <div className="mt-3"><AvisoTxt a={aviso} /></div>
+      </section>
+      {lista.length === 0 && <p className="tarjeta p-6">Esta misión todavía no tiene cuestionario.</p>}
+      {sel && <EditorCuestionarioDe key={sel} id={sel} roles={roles} alCambiar={() => cargar()} />}
+    </div>
+  )
+}
+
+function EditorCuestionarioDe({ id, roles, alCambiar }: { id: string; roles: Rol[]; alCambiar: () => void }) {
   const [c, setC] = useState<CuestionarioAdmin | null | undefined>(undefined)
   const [aviso, setAviso] = useState<Aviso>(null)
   const [nuevas, setNuevas] = useState<PreguntaAdmin[]>([])
   const [versionSubida, setVersionSubida] = useState(false)
-  const cargar = useCallback(() => { cuestionarioAdmin(modulo).then(setC).catch((e) => setAviso({ tipo: 'error', texto: e.message })) }, [modulo])
+  const cargar = useCallback(() => { cuestionarioAdmin(id).then(setC).catch((e) => setAviso({ tipo: 'error', texto: e.message })) }, [id])
   useEffect(() => { setC(undefined); setNuevas([]); setVersionSubida(false); cargar() }, [cargar])
 
   // Si ya hay intentos, el primer cambio crea una nueva versión del cuestionario (los intentos viejos conservan la suya).
@@ -102,16 +179,17 @@ function EditorCuestionario({ modulo }: { modulo: string }) {
   }
 
   if (c === undefined) return <p role="status">Cargando…</p>
-  if (c === null) return (
-    <div className="tarjeta p-6">
-      <p className="font-bold">Esta misión todavía no tiene cuestionario.</p>
-      <button className="boton-primario mt-4" onClick={async () => { await crearCuestionario(modulo, MODULOS[modulo].mision); cargar() }}>Crear cuestionario</button>
-    </div>
-  )
+  if (c === null) return <AvisoTxt a={aviso ?? { tipo: 'error', texto: 'No se encontró el cuestionario.' }} />
 
   const guardarDatos = async (cambios: Partial<CuestionarioAdmin>) => {
-    try { await actualizarCuestionario(c.id, cambios); setC({ ...c, ...cambios }); setAviso({ tipo: 'ok', texto: 'Cambios guardados.' }) }
+    try { await actualizarCuestionario(c.id, cambios); setC({ ...c, ...cambios }); setAviso({ tipo: 'ok', texto: 'Cambios guardados.' }); if ('titulo' in cambios || 'roles_bel' in cambios || 'validado' in cambios) alCambiar() }
     catch (e) { setAviso({ tipo: 'error', texto: (e as Error).message }) }
+  }
+  const alternarRol = (rid: string) => {
+    if (!c.roles_bel) return
+    const n = c.roles_bel.includes(rid) ? c.roles_bel.filter((x) => x !== rid) : [...c.roles_bel, rid]
+    if (!n.length) return setAviso({ tipo: 'error', texto: 'Debe quedar al menos un rol.' })
+    guardarDatos({ roles_bel: n })
   }
   const siguienteOrden = Math.max(0, ...c.preguntas.map((p) => p.orden), ...nuevas.map((p) => p.orden)) + 1
 
@@ -119,9 +197,22 @@ function EditorCuestionario({ modulo }: { modulo: string }) {
     <div className="space-y-4">
       <section className="tarjeta p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-black">Cuestionario</h2>
+          <h2 className="text-xl font-black">{c.titulo}</h2>
           <Insignia validado={c.validado} />
         </div>
+        {c.roles_bel ? (
+          <fieldset className="mt-3 rounded-2xl bg-dagrd-azul/5 p-3">
+            <legend className="px-1 text-sm font-bold">Dirigido solo a</legend>
+            <div className="grid gap-1 sm:grid-cols-2">
+              {roles.map((r) => (
+                <label key={r.id} className="flex min-h-[36px] items-center gap-2 text-sm">
+                  <input type="checkbox" className="h-4 w-4 accent-[#00394b]" checked={c.roles_bel!.includes(r.id)} onChange={() => alternarRol(r.id)} />{r.nombre}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-dagrd-navy/60">Quien tenga además otro rol de la misión que no esté marcado responde el cuestionario general.</p>
+          </fieldset>
+        ) : <p className="mt-2 text-sm text-dagrd-navy/70">Cuestionario general: lo responden todos los roles de la misión que no tengan un cuestionario propio.</p>}
         {c.intentos > 0 && <p className="mt-2 rounded-xl bg-dagrd-amarillo/25 p-3 text-xs">Ya tiene {c.intentos} intentos. Los cambios aplican a los intentos nuevos; los anteriores conservan su versión.</p>}
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <label className="text-sm font-bold sm:col-span-3">Título

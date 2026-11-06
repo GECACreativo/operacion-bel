@@ -13,12 +13,26 @@ export interface PreguntaAdmin { id: string; orden: number; enunciado: string; r
 export interface CuestionarioAdmin {
   id: string; titulo: string; descripcion: string | null; umbral: number; max_intentos: number | null
   validado: boolean; version: number; intentos: number; preguntas: PreguntaAdmin[]
+  /** null = cuestionario general; lista = solo para esos roles BEL */
+  roles_bel: string[] | null
 }
 
-export async function cuestionarioAdmin(modulo: string): Promise<CuestionarioAdmin | null> {
+export interface CuestionarioResumen { id: string; titulo: string; roles_bel: string[] | null; validado: boolean }
+
+/** Cuestionarios activos de la misión: el general y los dirigidos a roles específicos. */
+export async function cuestionariosAdmin(modulo: string): Promise<CuestionarioResumen[]> {
+  const l = ok(await supabase.from('cuestionarios').select('id, titulo, roles_bel, validado, version')
+    .eq('modulo_codigo', modulo).eq('activo', true).order('version', { ascending: false })) as any[]
+  // un cuestionario por público (el de versión más reciente)
+  const vistos = new Set<string>()
+  return l.filter((c) => { const k = (c.roles_bel ?? []).slice().sort().join(','); if (vistos.has(k)) return false; vistos.add(k); return true })
+    .sort((a, b) => (a.roles_bel ? 1 : 0) - (b.roles_bel ? 1 : 0))
+}
+
+export async function cuestionarioAdmin(id: string): Promise<CuestionarioAdmin | null> {
   const c = ok(await supabase.from('cuestionarios')
-    .select('id, titulo, descripcion, umbral, max_intentos, validado, version, preguntas(id, orden, enunciado, retroalimentacion, activo, opciones!opciones_pregunta_id_fkey(id, orden, texto))')
-    .eq('modulo_codigo', modulo).eq('activo', true).order('version', { ascending: false }).limit(1)) as any[]
+    .select('id, titulo, descripcion, umbral, max_intentos, validado, version, roles_bel, preguntas(id, orden, enunciado, retroalimentacion, activo, opciones!opciones_pregunta_id_fkey(id, orden, texto))')
+    .eq('id', id).limit(1)) as any[]
   if (!c.length) return null
   const ids = (c[0].preguntas as any[]).map((p) => p.id)
   const correctas = ids.length ? ok(await supabase.from('opciones_correctas').select('opcion_id').in('pregunta_id', ids)) as any[] : []
@@ -32,11 +46,11 @@ export async function cuestionarioAdmin(modulo: string): Promise<CuestionarioAdm
   }
 }
 
-export async function crearCuestionario(modulo: string, titulo: string) {
-  ok(await supabase.from('cuestionarios').insert({ modulo_codigo: modulo, titulo }))
+export async function crearCuestionario(modulo: string, titulo: string, roles: string[] | null = null): Promise<string> {
+  return (ok(await supabase.from('cuestionarios').insert({ modulo_codigo: modulo, titulo, roles_bel: roles }).select('id').single()) as any).id
 }
 
-export async function actualizarCuestionario(id: string, datos: Partial<Pick<CuestionarioAdmin, 'titulo' | 'descripcion' | 'umbral' | 'max_intentos' | 'validado' | 'version'>>) {
+export async function actualizarCuestionario(id: string, datos: Partial<Pick<CuestionarioAdmin, 'titulo' | 'descripcion' | 'umbral' | 'max_intentos' | 'validado' | 'version' | 'roles_bel'>>) {
   ok(await supabase.from('cuestionarios').update(datos).eq('id', id))
 }
 
