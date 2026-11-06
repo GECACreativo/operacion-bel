@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  actualizarCuestionario, borrarOpcion, criteriosAdmin, crearCuestionario, cuestionarioAdmin, guardarCriterio, guardarPregunta, rolesDelModulo,
+  actualizarCuestionario, activarCriterio, borrarCriterio, borrarOpcion, criteriosAdmin, crearCuestionario, cuestionarioAdmin, guardarCriterio, guardarPregunta, rolesDelModulo,
   type CriterioAdmin, type CuestionarioAdmin, type PreguntaAdmin,
 } from '../../data/contenidos'
 import { MODULOS, ORDEN_FORMACION } from '../../data/modulos'
@@ -160,11 +160,24 @@ function EditorCuestionario({ modulo }: { modulo: string }) {
 
 // ───────── Criterios del reto ─────────
 
-function FilaCriterio({ c: inicial, modulo, nuevo, roles, alGuardar }: {
-  c: CriterioAdmin; modulo: string; nuevo: boolean; roles: { id: string; nombre: string }[]; alGuardar: () => void
+function FilaCriterio({ c: inicial, modulo, nuevo, roles, alGuardar, alDescartar }: {
+  c: CriterioAdmin; modulo: string; nuevo: boolean; roles: { id: string; nombre: string }[]; alGuardar: () => void; alDescartar?: () => void
 }) {
   const [c, setC] = useState(inicial)
   const [aviso, setAviso] = useState<Aviso>(null)
+  const [confirmando, setConfirmando] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
+  const cambiarActivo = async () => {
+    setOcupado(true); setAviso(null)
+    try { await activarCriterio(c.id, !inicial.activo); alGuardar() } catch (e) { setAviso({ tipo: 'error', texto: (e as Error).message }) }
+    setOcupado(false)
+  }
+  const eliminar = async () => {
+    setOcupado(true); setAviso(null)
+    try { await borrarCriterio(c.id); setConfirmando(false); alGuardar() }
+    catch (e) { setConfirmando(false); setAviso({ tipo: 'error', texto: (e as Error).message }) }
+    setOcupado(false)
+  }
   const sucio = JSON.stringify(c) !== JSON.stringify(inicial)
   const guardar = async () => {
     if (!c.descripcion.trim()) return setAviso({ tipo: 'error', texto: 'Escribe el criterio.' })
@@ -172,7 +185,8 @@ function FilaCriterio({ c: inicial, modulo, nuevo, roles, alGuardar }: {
     catch (e) { setAviso({ tipo: 'error', texto: (e as Error).message }) }
   }
   return (
-    <li className={`rounded-2xl border border-dagrd-navy/10 bg-white p-4 ${c.activo ? '' : 'opacity-60'}`}>
+    <li className={`rounded-2xl border p-4 ${inicial.activo || nuevo ? 'border-dagrd-navy/10 bg-white' : 'border-dashed border-dagrd-navy/25 bg-[#f7f7f5]'}`}>
+      {!nuevo && !inicial.activo && <p className="mb-2 inline-block rounded-pill bg-dagrd-gris/60 px-2.5 py-0.5 text-xs font-bold">Desactivado · no se usa en las evaluaciones</p>}
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
         <textarea rows={2} className={campo} value={c.descripcion} aria-label="Descripción del criterio" onChange={(e) => setC({ ...c, descripcion: e.target.value })} />
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
@@ -185,16 +199,26 @@ function FilaCriterio({ c: inicial, modulo, nuevo, roles, alGuardar }: {
           <label className="flex items-center gap-2 font-bold"><input type="checkbox" className="h-5 w-5 accent-red-700" checked={c.critico} onChange={(e) => setC({ ...c, critico: e.target.checked })} />Crítico</label>
           <label className="flex items-center gap-2"><span className="font-bold">Orden</span>
             <input type="number" min={1} className={`${campo} w-16`} value={c.orden} onChange={(e) => setC({ ...c, orden: Number(e.target.value) })} /></label>
-          <label className="flex items-center gap-2"><input type="checkbox" className="h-5 w-5 accent-[#00394b]" checked={c.activo} onChange={(e) => setC({ ...c, activo: e.target.checked })} />Activo</label>
           <label className="flex items-center gap-2"><input type="checkbox" className="h-5 w-5 accent-[#00394b]" checked={c.validado} onChange={(e) => setC({ ...c, validado: e.target.checked })} />Validado</label>
         </div>
       </div>
-      {(sucio || nuevo || aviso) && (
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          {(sucio || nuevo) && <button onClick={guardar} className="boton-secundario min-h-[36px]">Guardar</button>}
-          <AvisoTxt a={aviso} />
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        {(sucio || nuevo) && <button onClick={guardar} className="boton-secundario min-h-[36px]">Guardar</button>}
+        {nuevo && alDescartar && <button onClick={alDescartar} className="boton-fantasma min-h-[36px]">Descartar</button>}
+        {!nuevo && !confirmando && (<>
+          <button onClick={cambiarActivo} disabled={ocupado} className="min-h-[36px] rounded-pill border border-dagrd-navy/20 px-4 text-sm font-bold hover:bg-[#efefed]">
+            {inicial.activo ? 'Desactivar' : 'Activar'}</button>
+          <button onClick={() => { setConfirmando(true); setAviso(null) }} disabled={ocupado} className="min-h-[36px] rounded-pill px-3 text-sm font-bold text-red-700 hover:bg-red-50">Eliminar</button>
+        </>)}
+        {confirmando && (
+          <span role="group" aria-label="Confirmar eliminación" className="flex flex-wrap items-center gap-2 rounded-xl bg-red-50 px-3 py-1.5 text-sm text-red-900">
+            ¿Eliminar este criterio definitivamente?
+            <button onClick={eliminar} disabled={ocupado} className="min-h-[32px] rounded-pill bg-red-700 px-3 font-bold text-white hover:bg-red-800">Sí, eliminar</button>
+            <button onClick={() => setConfirmando(false)} className="min-h-[32px] rounded-pill px-3 font-bold hover:bg-red-100">Cancelar</button>
+          </span>
+        )}
+        <AvisoTxt a={aviso} />
+      </div>
     </li>
   )
 }
@@ -221,7 +245,7 @@ function EditorCriterios({ modulo }: { modulo: string }) {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-dagrd-navy/70">Cada persona se evalúa con los criterios de «Todos los roles» más los de su rol. Un criterio crítico sin cumplir impide aprobar. Desactiva en lugar de borrar: así se conservan las evaluaciones anteriores.</p>
+      <p className="text-sm text-dagrd-navy/70">Cada persona se evalúa con los criterios de «Todos los roles» más los de su rol. Un criterio crítico sin cumplir impide aprobar. «Desactivar» lo saca de las próximas evaluaciones y se puede volver a activar. «Eliminar» lo borra del todo, y solo es posible si aún no se ha usado en ninguna evaluación.</p>
       {grupos.length === 0 && <p className="tarjeta p-6">Esta misión aún no tiene criterios.</p>}
       {grupos.map((g) => (
         <section key={g.id ?? 'todos'} className="tarjeta p-5" aria-label={g.nombre}>
@@ -237,7 +261,7 @@ function EditorCriterios({ modulo }: { modulo: string }) {
       ))}
       {nuevos.length > 0 && (
         <ul className="space-y-3">
-          {nuevos.map((c) => <FilaCriterio key={c.id} c={c} modulo={modulo} nuevo roles={roles} alGuardar={() => { setNuevos(nuevos.filter((n) => n.id !== c.id)); cargar() }} />)}
+          {nuevos.map((c) => <FilaCriterio key={c.id} c={c} modulo={modulo} nuevo roles={roles} alGuardar={() => { setNuevos(nuevos.filter((n) => n.id !== c.id)); cargar() }} alDescartar={() => setNuevos(nuevos.filter((n) => n.id !== c.id))} />)}
         </ul>
       )}
       <button className="boton-primario" onClick={() => setNuevos([...nuevos, {

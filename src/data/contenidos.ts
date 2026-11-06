@@ -76,6 +76,19 @@ export async function guardarCriterio(modulo: string, c: CriterioAdmin, nuevo: b
   else ok(await supabase.from('criterios').update(datos).eq('id', c.id))
 }
 
+/** Activa o desactiva un criterio sin tocar sus demás datos. */
+export async function activarCriterio(id: string, activo: boolean) {
+  ok(await supabase.from('criterios').update({ activo }).eq('id', id))
+}
+
+/** Borra un criterio. Si ya se usó en evaluaciones, la base lo impide (se conserva el historial): hay que desactivarlo. */
+export async function borrarCriterio(id: string) {
+  const r = await supabase.from('criterios').delete().eq('id', id)
+  if (r.error && /violates foreign key|still referenced/i.test(r.error.message))
+    throw new Error('Este criterio ya se usó en evaluaciones de reto y no se puede eliminar sin perder ese historial. Desactívalo: dejará de aparecer en las próximas evaluaciones.')
+  ok(r)
+}
+
 export async function rolesDelModulo(modulo: string): Promise<{ id: string; nombre: string }[]> {
   const f = ok(await supabase.from('rol_modulo').select('rol:rol_bel_id(id, nombre, orden)').eq('modulo_codigo', modulo)) as any[]
   return f.map((x) => x.rol).filter(Boolean).sort((a: any, b: any) => a.orden - b.orden)
