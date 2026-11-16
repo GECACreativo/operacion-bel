@@ -68,6 +68,13 @@ function Indicador({ titulo, valor, detalle, meta }: { titulo: string; valor: st
   )
 }
 
+type Col = 'nombre' | 'rol' | 'ubicacion' | 'avance' | 'xp' | 'siguiente' | 'refuerzo'
+const VALOR: Record<Col, (p: Persona) => string | number> = {
+  nombre: (p) => p.nombre, rol: (p) => p.rol, ubicacion: (p) => `${p.estacion} ${p.compania}`,
+  avance: (p) => (p.ruta ? p.aprobadas / p.ruta : 0), xp: (p) => p.xp,
+  siguiente: (p) => p.siguiente ?? (p.aprobadas === p.ruta ? 'Ruta completa' : 'zzz'), refuerzo: (p) => p.refuerzo.length,
+}
+
 function exportarCSV(personas: Persona[]) {
   const enc = ['Nombre', 'Correo', 'Rol BEL', 'Familia', 'Estación', 'Compañía', 'Grupo Élite', 'Misiones de la ruta', 'Aprobadas', 'Avance %', 'XP', 'Requiere refuerzo en', 'Siguiente misión']
   const filas = personas.map((p) => [p.nombre, p.correo, p.rol, p.familia, p.estacion, p.compania, p.elite ? 'Sí' : 'No', p.ruta, p.aprobadas,
@@ -83,6 +90,7 @@ export default function Tablero() {
   const [filas, setFilas] = useState<Fila[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [f, setF] = useState({ compania: '', estacion: '', familia: '', busqueda: '', elite: false, refuerzo: false })
+  const [orden, setOrden] = useState<{ col: Col; asc: boolean }>({ col: 'nombre', asc: true })
 
   useEffect(() => {
     supabase.rpc('tablero').then(({ data, error }) => { if (error) setError(error.message); else setFilas(data as Fila[]) })
@@ -94,6 +102,19 @@ export default function Tablero() {
   const personas = todas.filter((p) => (!f.compania || p.compania === f.compania) && (!f.estacion || p.estacion === f.estacion)
     && (!f.familia || p.familia === f.familia) && (!f.elite || p.elite) && (!f.refuerzo || p.refuerzo.length > 0)
     && (!q || `${p.nombre} ${p.correo} ${p.rol}`.toLowerCase().includes(q)))
+  const ordenadas = [...personas].sort((a, b) => {
+    const va = VALOR[orden.col](a), vb = VALOR[orden.col](b)
+    const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' })
+    return (orden.asc ? c : -c) || a.nombre.localeCompare(b.nombre, 'es')
+  })
+  const encabezado = (col: Col, texto: string, derecha = false) => (
+    <th className={`pr-3 ${col === 'nombre' ? 'py-2' : ''} ${derecha ? 'text-right' : ''}`} aria-sort={orden.col === col ? (orden.asc ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" onClick={() => setOrden({ col, asc: orden.col === col ? !orden.asc : col !== 'avance' && col !== 'xp' })}
+        className={`inline-flex min-h-[32px] items-center gap-1 uppercase tracking-wide hover:text-dagrd-navy ${orden.col === col ? 'text-dagrd-navy' : ''}`}>
+        {texto}<span aria-hidden className="text-[10px]">{orden.col === col ? (orden.asc ? '▲' : '▼') : '↕'}</span>
+      </button>
+    </th>
+  )
   const ids = new Set(personas.map((p) => p.id))
   const filasF = (filas ?? []).filter((x) => ids.has(x.perfil_id))
 
@@ -161,17 +182,17 @@ export default function Tablero() {
           <section className="tarjeta p-5" aria-labelledby="t-personas">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 id="t-personas" className="text-xl font-black">Participantes ({personas.length})</h2>
-              <button onClick={() => exportarCSV(personas)} disabled={!personas.length} className="boton-fantasma">Descargar para Excel</button>
+              <button onClick={() => exportarCSV(ordenadas)} disabled={!personas.length} className="boton-fantasma">Descargar para Excel</button>
             </div>
             {personas.length === 0 ? <p className="mt-4 text-sm text-dagrd-navy/70">No hay participantes con estos filtros.</p> : (
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="border-b border-dagrd-navy/15 text-xs uppercase tracking-wide text-dagrd-navy/60">
-                    <tr><th className="py-2 pr-3">Nombre</th><th className="pr-3">Rol</th><th className="pr-3">Estación · Compañía</th>
-                      <th className="pr-3 text-right">Avance</th><th className="pr-3 text-right">XP</th><th className="pr-3">Siguiente</th><th>Refuerzo</th></tr>
+                    <tr>{encabezado('nombre', 'Nombre')}{encabezado('rol', 'Rol')}{encabezado('ubicacion', 'Estación · Compañía')}
+                      {encabezado('avance', 'Avance', true)}{encabezado('xp', 'XP', true)}{encabezado('siguiente', 'Siguiente')}{encabezado('refuerzo', 'Refuerzo')}</tr>
                   </thead>
                   <tbody className="divide-y divide-dagrd-navy/10">
-                    {personas.map((p) => (
+                    {ordenadas.map((p) => (
                       <tr key={p.id}>
                         <td className="py-2.5 pr-3"><span className="font-bold">{p.nombre}</span>{p.elite && <span className="ml-2 rounded-pill bg-dagrd-amarillo px-2 py-0.5 text-[10px] font-black">ÉLITE</span>}
                           <span className="block text-xs text-dagrd-navy/60">{p.correo}</span></td>

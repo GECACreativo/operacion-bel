@@ -1,8 +1,31 @@
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { useEstado } from '../estado'
 import { Logos, Marca } from '../components/Marco'
 
 const campo = 'mt-1 block min-h-[48px] w-full rounded-2xl border border-dagrd-navy/20 bg-white px-4 text-base'
+
+/** Campo de contraseña con interruptor para mostrarla u ocultarla. */
+function CampoClave({ etiqueta, valor, alCambiar, autoComplete }: { etiqueta: string; valor: string; alCambiar: (v: string) => void; autoComplete: string }) {
+  const [ver, setVer] = useState(false)
+  const id = useId()
+  return (
+    <div>
+      <label htmlFor={id} className="text-sm font-bold">{etiqueta}</label>
+      <div className="relative">
+        <input id={id} type={ver ? 'text' : 'password'} required autoComplete={autoComplete} value={valor} onChange={(e) => alCambiar(e.target.value)}
+          className={`${campo} pr-14`} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+        <button type="button" onClick={() => setVer(!ver)} aria-pressed={ver} aria-label={ver ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+          title={ver ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+          className="absolute right-1.5 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-xl text-dagrd-navy/70 hover:bg-[#efefed] hover:text-dagrd-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-dagrd-azul" style={{ marginTop: 2 }}>
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" />
+            {ver && <path d="M3 3l18 18" />}
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function PanelMarca() {
   return (
@@ -63,10 +86,7 @@ function Formulario() {
             placeholder="nombre@correo.com" className={campo} />
         </label>
         {modo === 'ingreso' && (
-          <label className="block">
-            <span className="text-sm font-bold">Contraseña</span>
-            <input type="password" required autoComplete="current-password" value={clave} onChange={(e) => setClave(e.target.value)} className={campo} />
-          </label>
+          <CampoClave etiqueta="Contraseña" valor={clave} alCambiar={setClave} autoComplete="current-password" />
         )}
       </div>
       {mensaje && (
@@ -112,10 +132,8 @@ export function NuevaClave() {
         Mínimo 8 caracteres. Usa una distinta a la de BEL.
       </p>
       <div className="mt-6 space-y-4">
-        <label className="block"><span className="text-sm font-bold">Nueva contraseña</span>
-          <input type="password" required autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} className={campo} /></label>
-        <label className="block"><span className="text-sm font-bold">Confírmala</span>
-          <input type="password" required autoComplete="new-password" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} className={campo} /></label>
+        <CampoClave etiqueta="Nueva contraseña" valor={clave} alCambiar={setClave} autoComplete="new-password" />
+        <CampoClave etiqueta="Confírmala" valor={confirmacion} alCambiar={setConfirmacion} autoComplete="new-password" />
       </div>
       {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       <button type="submit" disabled={enviando} className="boton-primario mt-6 w-full text-base">{enviando ? 'Guardando…' : 'Guardar y entrar'}</button>

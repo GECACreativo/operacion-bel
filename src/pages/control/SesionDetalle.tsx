@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  candidatos, cambiarEstadoSesion, misionesDe, habilitarActividades, eliminarSesion, historialSesion, quitarHabilitacion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, reprogramarSesion, retirar,
+  candidatos, cambiarEstadoSesion, misionesDe, preinscritosSinCuenta, habilitarActividades, eliminarSesion, historialSesion, quitarHabilitacion, inscribir, listarInscritos, obtenerSesion, registrarAsistencia, reprogramarSesion, retirar,
   suspenderSesion, type CambioEstado, type Inscrito, type SesionControl,
 } from '../../data/control'
 import { MODULOS } from '../../data/modulos'
@@ -136,7 +136,7 @@ function FilaAsistencia({ i, sesion, modulo, alCambiar, puedeRetirar }: {
           {!esPropia && (asistenciaCuenta || i.habilitada) && (
             <button onClick={() => setEvaluando(!evaluando)} aria-expanded={evaluando}
               className="min-h-[40px] rounded-pill border border-dagrd-navy/20 px-4 text-sm font-bold hover:bg-[#efefed]">
-              {evaluando ? 'Cerrar reto' : misionesDe(sesion).length > 1 ? `Evaluar reto ${modulo}` : 'Evaluar reto'}
+              {evaluando ? 'Cerrar reto' : `${i.reto ? 'Volver a evaluar' : 'Evaluar reto'}${misionesDe(sesion).length > 1 ? ` ${modulo}` : ''}`}
             </button>
           )}
           {esGestor && !asistenciaCuenta && (
@@ -151,6 +151,11 @@ function FilaAsistencia({ i, sesion, modulo, alCambiar, puedeRetirar }: {
           )}
         </div>
       </div>
+      {i.reto && (
+        <p className={`mt-1 inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-xs font-bold ${i.reto.aprobado ? 'bg-dagrd-petroleo text-white' : 'bg-orange-100 text-orange-900'}`}>
+          <IconoCheck className="h-3.5 w-3.5" /> Reto evaluado{misionesDe(sesion).length > 1 ? ` (${modulo})` : ''} · {i.reto.aprobado ? `aprobado${i.reto.autonomo ? ' · autónomo' : ''}` : 'no aprobado'} · {new Date(i.reto.fecha).toLocaleDateString('es-CO')}
+        </p>
+      )}
       {i.presente === true && (i.firmado_en
         ? <p className="mt-1 text-xs font-bold text-dagrd-petroleo">✓ Firmó su asistencia · {new Date(i.firmado_en).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}</p>
         : <p className="mt-1 text-xs text-dagrd-navy/60">Pendiente de firma: la persona firma desde su cuenta en Operación BEL.</p>)}
@@ -198,7 +203,11 @@ function Inscribir({ sesion, inscritos, alInscribir }: { sesion: SesionControl; 
   const [elegidos, setElegidos] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const misiones = misionesDe(sesion)
-  useEffect(() => { candidatos(misiones).then(setLista).catch((e) => setError(e.message)) }, [misiones.join()]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [sinCuenta, setSinCuenta] = useState<{ correo: string; nombre: string }[]>([])
+  useEffect(() => {
+    candidatos(misiones).then(setLista).catch((e) => setError(e.message))
+    preinscritosSinCuenta(misiones).then(setSinCuenta).catch(() => setSinCuenta([]))
+  }, [misiones.join()]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ya = new Set(inscritos.map((i) => i.perfil_id))
   const q = busqueda.trim().toLowerCase()
@@ -233,6 +242,17 @@ function Inscribir({ sesion, inscritos, alInscribir }: { sesion: SesionControl; 
           </li>
         ))}
       </ul>
+      {sinCuenta.filter((p) => !q || `${p.nombre} ${p.correo}`.toLowerCase().includes(q)).length > 0 && (
+        <div className="mt-4 rounded-2xl border border-dagrd-amarillo bg-dagrd-amarillo/15 p-3 text-sm">
+          <p className="font-bold">Preinscritos sin cuenta ({sinCuenta.length})</p>
+          <p className="mt-1 text-xs text-dagrd-navy/75">Todavía no han activado su cuenta, por eso no se pueden inscribir. Asígnales una contraseña temporal en <Link to="/control/usuarios" className="font-bold text-dagrd-azul underline">Control › Usuarios</Link> y aparecerán en esta lista.</p>
+          <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+            {sinCuenta.filter((p) => !q || `${p.nombre} ${p.correo}`.toLowerCase().includes(q)).map((p) => (
+              <li key={p.correo} className="text-xs"><span className="font-bold">{p.nombre}</span> · {p.correo}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
       <button onClick={guardar} disabled={!elegidos.length} className="boton-primario mt-4">
         Inscribir {elegidos.length || ''} {elegidos.length === 1 ? 'persona' : 'personas'}

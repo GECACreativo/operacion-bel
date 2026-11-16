@@ -45,6 +45,7 @@ export interface Inscrito {
   presente: boolean | null // null = sin registrar
   habilitada: boolean // habilitación manual vigente de administración para la misión
   firmado_en: string | null // el participante firmó su asistencia
+  reto: { aprobado: boolean; autonomo: boolean; fecha: string } | null // última evaluación del reto práctico de la misión
 }
 
 const CAMPOS = 'id, modulo_codigo, modulos_extra, modalidad, inicio, fin, lugar, enlace, cupo, estado, temas_abordados, temas_pendientes, observaciones_estado, sesion_origen_id, reprogramada_en_id, instructor_id, instructor:instructor_id(nombre), inscripciones(count)'
@@ -101,11 +102,14 @@ export async function listarInscritos(sesionId: string, modulo: string): Promise
   const ids = ins.map((i) => i.perfil_id)
   const habs = ids.length && modulo ? ok(await supabase.from('habilitaciones').select('perfil_id').eq('modulo_codigo', modulo)
     .is('revocada_en', null).in('perfil_id', ids)) as any[] : []
+  const evals = ids.length && modulo ? ok(await supabase.from('evaluaciones_reto').select('perfil_id, aprobado, autonomo, fecha')
+    .eq('modulo_codigo', modulo).in('perfil_id', ids).order('fecha', { ascending: false })) as any[] : []
   return ins.map((i) => ({
     perfil_id: i.perfil_id, nombre: i.perfil?.nombre ?? '—', correo: i.perfil?.correo ?? '', rol: i.perfil?.rol?.nombre ?? null, rol_id: i.perfil?.rol_bel_id ?? null,
     presente: asis.find((a) => a.perfil_id === i.perfil_id)?.presente ?? null,
     habilitada: habs.some((h) => h.perfil_id === i.perfil_id),
     firmado_en: asis.find((a) => a.perfil_id === i.perfil_id)?.firmado_en ?? null,
+    reto: ((e) => (e ? { aprobado: !!e.aprobado, autonomo: !!e.autonomo, fecha: e.fecha } : null))(evals.find((e) => e.perfil_id === i.perfil_id)),
   })).sort((a, b) => a.nombre.localeCompare(b.nombre))
 }
 
@@ -118,6 +122,24 @@ export async function candidatos(modulos: string[]): Promise<{ id: string; nombr
   const filas = ok(await supabase.from('perfiles').select('id, nombre, correo, rol:rol_bel_id(nombre)')
     .or(`rol_bel_id.in.(${roles.join(',')}),roles_bel_extra.ov.{${roles.join(',')}}`).eq('activo', true).order('nombre')) as any[]
   return filas.map((f) => ({ id: f.id, nombre: f.nombre, correo: f.correo, rol: f.rol?.nombre ?? '' }))
+}
+
+/** Preinscritos con rol de alguna de las misiones que aún no tienen cuenta (no se pueden inscribir hasta crearla). Solo administración. */
+export async function preinscritosSinCuenta(modulos: string[]): Promise<{ correo: string; nombre: string }[]> {
+  const roles = (ok(await supabase.from('rol_modulo').select('rol_bel_id').in('modulo_codigo', modulos)) as any[]).map((r) => r.rol_bel_id)
+    .filter((v, i, a) => a.indexOf(v) === i)
+  if (!roles.length) return []
+  const { data } = await supabase.from('preasignaciones').select('correo, nombre')
+    .or(`rol_bel_id.in.(${roles.join(',')}),roles_bel_extra.ov.{${roles.join(',')}}`)
+  const pre = (data ?? []) as { correo: string; nombre: string }[]
+  if (!pre.length) return []
+  const conCuenta = new Set<string>()
+  for (let i = 0; i < pre.length; i += 100) {
+    const lote = pre.slice(i, i + 100).map((p) => p.correo.toLowerCase())
+    const { data: pf } = await supabase.from('perfiles').select('correo').in('correo', lote)
+    ;(pf ?? []).forEach((x: any) => conCuenta.add(String(x.correo).toLowerCase()))
+  }
+  return pre.filter((p) => !conCuenta.has(p.correo.toLowerCase())).sort((a, b) => a.nombre.localeCompare(b.nombre))
 }
 
 export async function inscribir(sesionId: string, perfilIds: string[]) {

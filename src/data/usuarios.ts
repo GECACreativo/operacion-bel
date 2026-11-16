@@ -76,3 +76,15 @@ export async function asignarClavesTemporales(correos: string[], clave?: string)
   if (error) throw new Error(error.message)
   return data.resultados as ClaveAsignada[]
 }
+
+// ───────── Misiones fuera del objetivo (se ocultan de la ruta sin borrar avance) ─────────
+export async function misionesExcluidas(): Promise<Map<string, string[]>> {
+  const l = ok(await supabase.rpc('misiones_excluidas_admin')) as { perfil_id: string; modulos: string[] }[]
+  return new Map(l.map((x) => [x.perfil_id, x.modulos]))
+}
+export async function excluirMisiones(perfiles: string[], modulos: string[], motivo: string) {
+  return ok(await supabase.rpc('excluir_misiones', { p_perfiles: perfiles, p_modulos: modulos, p_motivo: motivo })) as number
+}
+export async function incluirMisiones(perfiles: string[], modulos: string[], motivo: string) {
+  return ok(await supabase.rpc('incluir_misiones', { p_perfiles: perfiles, p_modulos: modulos, p_motivo: motivo })) as number
+}

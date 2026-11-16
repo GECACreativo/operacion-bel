@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  asignarClavesTemporales, catalogos, estadoAcceso, guardarUsuario, invitar, listarUsuarios, renombrarUnidad, ROLES_PLATAFORMA,
+  asignarClavesTemporales, catalogos, estadoAcceso, excluirMisiones, guardarUsuario, incluirMisiones, invitar, listarUsuarios, misionesExcluidas, renombrarUnidad, ROLES_PLATAFORMA,
   type ClaveAsignada, type EstadoAcceso, type Usuario,
 } from '../../data/usuarios'
 import ControlNav from './ControlNav'
 import { urlRetorno } from '../../lib/supabase'
+import { MODULOS, ORDEN_FORMACION } from '../../data/modulos'
 
 type Catalogos = Awaited<ReturnType<typeof catalogos>>
 const campo = 'mt-1 block min-h-[44px] w-full rounded-xl border border-dagrd-navy/20 bg-white px-3 text-sm'
@@ -261,6 +262,62 @@ function ClavesTemporales({ correos, alTerminar, alCerrar }: { correos: string[]
   )
 }
 
+// Misiones fuera del objetivo de un grupo: se ocultan de la ruta sin borrar el avance; se pueden volver a incluir.
+function MisionesRuta({ personas, alTerminar, alCerrar }: { personas: Usuario[]; alTerminar: () => void; alCerrar: () => void }) {
+  const [modulos, setModulos] = useState<string[]>([])
+  const [motivo, setMotivo] = useState('')
+  const [aviso, setAviso] = useState<{ ok: boolean; t: string } | null>(null)
+  const [trabajando, setTrabajando] = useState(false)
+  const conCuenta = personas.filter((u) => u.perfil_id).map((u) => u.perfil_id!) 
+  const sinCuenta = personas.length - conCuenta.length
+  const aplicar = async (accion: 'excluir' | 'incluir') => {
+    setAviso(null)
+    if (!modulos.length) return setAviso({ ok: false, t: 'Elige al menos una misión.' })
+    if (!motivo.trim()) return setAviso({ ok: false, t: 'Escribe el motivo: queda en la auditoría.' })
+    setTrabajando(true)
+    try {
+      if (accion === 'excluir') await excluirMisiones(conCuenta, modulos, motivo.trim())
+      else await incluirMisiones(conCuenta, modulos, motivo.trim())
+      setAviso({ ok: true, t: accion === 'excluir'
+        ? `Listo: ${modulos.join(', ')} ya no aparecen en la ruta de ${conCuenta.length} ${conCuenta.length === 1 ? 'persona' : 'personas'}. Su avance se conserva.`
+        : `Listo: ${modulos.join(', ')} vuelven a la ruta de ${conCuenta.length} ${conCuenta.length === 1 ? 'persona' : 'personas'} (solo si su rol incluye esas misiones).` })
+      alTerminar()
+    } catch (e) { setAviso({ ok: false, t: (e as Error).message }) }
+    setTrabajando(false)
+  }
+  return (
+    <div className="mt-4 rounded-2xl border-2 border-dagrd-navy/15 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="font-black">Misiones de la ruta · {personas.length} {personas.length === 1 ? 'persona' : 'personas'}</h3>
+          <p className="text-xs text-dagrd-navy/70">Quita de la ruta las misiones que no hacen parte del objetivo de este grupo, o vuelve a incluirlas. No se borra ningún avance: si se vuelven a incluir, la persona recupera lo que ya tenía.</p>
+        </div>
+        <button onClick={alCerrar} className="text-sm font-bold text-dagrd-navy/60 hover:underline">Cerrar</button>
+      </div>
+      {sinCuenta > 0 && <p className="mt-2 text-xs text-orange-800">{sinCuenta} sin cuenta todavía: el cambio solo aplica a quienes ya tienen cuenta.</p>}
+      <fieldset className="mt-3"><legend className="text-sm font-bold">Misiones</legend>
+        <div className="mt-1 grid gap-1 sm:grid-cols-3">
+          {ORDEN_FORMACION.map((c) => (
+            <label key={c} className="flex min-h-[36px] items-center gap-2 text-sm">
+              <input type="checkbox" className="h-4 w-4 accent-[#00394b]" checked={modulos.includes(c)}
+                onChange={(e) => setModulos(e.target.checked ? [...modulos, c] : modulos.filter((x) => x !== c))} />
+              <span><span className="font-bold">{c}</span> · {MODULOS[c]?.nombre}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <label className="mt-3 block text-sm font-bold">Motivo
+        <input value={motivo} onChange={(e) => setMotivo(e.target.value)} className={campo} placeholder="Ej.: no hace parte del objetivo de este grupo" />
+      </label>
+      {aviso && <p role={aviso.ok ? 'status' : 'alert'} className={`mt-2 rounded-xl p-2 text-sm ${aviso.ok ? 'bg-dagrd-petroleo/10 text-dagrd-petroleo' : 'bg-red-50 text-red-800'}`}>{aviso.t}</p>}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button onClick={() => aplicar('excluir')} disabled={trabajando || !conCuenta.length} className="boton-secundario min-h-[40px]">Quitar de la ruta</button>
+        <button onClick={() => aplicar('incluir')} disabled={trabajando || !conCuenta.length} className="boton-fantasma min-h-[40px]">Volver a incluir</button>
+      </div>
+    </div>
+  )
+}
+
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null)
   const [cat, setCat] = useState<Catalogos | null>(null)
@@ -273,10 +330,13 @@ export default function Usuarios() {
   const [resultado, setResultado] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [claves, setClaves] = useState<string[] | null>(null)
+  const [rutaPanel, setRutaPanel] = useState<string[] | null>(null)
+  const [excluidas, setExcluidas] = useState<Map<string, string[]>>(new Map())
 
   const cargar = useCallback(() => {
     listarUsuarios().then(setUsuarios).catch((e) => setError(e.message))
     catalogos().then(setCat).catch((e) => setError(e.message))
+    misionesExcluidas().then(setExcluidas).catch(() => {})
   }, [])
   useEffect(() => { cargar() }, [cargar])
 
@@ -334,9 +394,12 @@ export default function Usuarios() {
             <p className="text-sm font-bold">{elegidos.length} seleccionadas</p>
             <button onClick={enviarInvitaciones} disabled={enviando} className="boton-secundario min-h-[40px]">{enviando ? 'Enviando…' : 'Enviar invitación por correo'}</button>
             <button onClick={() => setClaves(elegidos)} className="boton-fantasma min-h-[40px]">Asignar contraseña temporal</button>
+            <button onClick={() => { setClaves(null); setRutaPanel(elegidos) }} className="boton-fantasma min-h-[40px]">Misiones de la ruta</button>
             <p className="text-xs text-dagrd-navy/70">Si el correo no llega, usa la contraseña temporal y entrégala por WhatsApp, Teams o en persona.</p>
           </div>
         )}
+        {rutaPanel && <MisionesRuta key={rutaPanel.join()} personas={(usuarios ?? []).filter((u) => rutaPanel.includes(u.correo))}
+          alTerminar={cargar} alCerrar={() => setRutaPanel(null)} />}
         {claves && <ClavesTemporales key={claves.join()} correos={claves} alTerminar={() => { setElegidos([]); cargar() }} alCerrar={() => setClaves(null)} />}
         {resultado && <p role="status" className="mt-3 rounded-xl bg-[#efefed] p-3 text-sm">{resultado}</p>}
 
@@ -362,7 +425,8 @@ export default function Usuarios() {
                         checked={elegidos.includes(u.correo)} onChange={(e) => setElegidos(e.target.checked ? [...elegidos, u.correo] : elegidos.filter((x) => x !== u.correo))} /></td>
                       <td className="pr-3"><span className="font-bold">{u.nombre}</span>{u.grupo_elite && <span className="ml-2 rounded-pill bg-dagrd-amarillo px-2 py-0.5 text-[10px] font-black">ÉLITE</span>}
                         <span className="block text-xs text-dagrd-navy/60">{u.correo}</span></td>
-                      <td className="pr-3">{nombreDe(cat?.roles, u.rol_bel_id)}{u.roles_bel_extra.length > 0 && <span className="block text-xs text-dagrd-navy/60">+ {u.roles_bel_extra.map((id) => nombreDe(cat?.roles, id)).join(' + ')}</span>}</td>
+                      <td className="pr-3">{nombreDe(cat?.roles, u.rol_bel_id)}{u.roles_bel_extra.length > 0 && <span className="block text-xs text-dagrd-navy/60">+ {u.roles_bel_extra.map((id) => nombreDe(cat?.roles, id)).join(' + ')}</span>}
+                        {u.perfil_id && excluidas.get(u.perfil_id)?.length ? <span className="mt-0.5 block text-[11px] font-bold text-dagrd-azul">Sin {excluidas.get(u.perfil_id)!.join(', ')} en la ruta</span> : null}</td>
                       <td className="pr-3 text-dagrd-navy/80">{nombreDe(cat?.estaciones, u.estacion_id)} · {nombreDe(cat?.companias, u.compania_id)}</td>
                       <td className="pr-3 text-xs">{u.roles.map((r) => ROLES_PLATAFORMA.find((x) => x.id === r)?.nombre ?? r).join(', ')}</td>
                       <td className="pr-3"><span className={`rounded-pill px-2.5 py-1 text-xs font-bold ${est.c}`}>{est.t}</span>

@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
+import Logros from './Logros'
 import { useEstado } from '../estado'
 import { opcionesControl } from '../pages/control/ControlNav'
 import { IconoCalendario, IconoCasa, IconoInsignia, IconoReporte, IconoRuta, IconoSalir } from './Iconos'
@@ -43,6 +44,7 @@ export default function Marco() {
 
   return (
     <div className="min-h-dvh pb-24 md:pb-0">
+      <Logros />
       <a href="#contenido" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 boton-primario">Saltar al contenido</a>
       <header className="sticky top-0 z-30 bg-dagrd-fondo text-white shadow-lg">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
