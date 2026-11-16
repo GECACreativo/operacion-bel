@@ -16,6 +16,7 @@ import Contenidos from './pages/control/Contenidos'
 import Tablero from './pages/control/Tablero'
 import Usuarios from './pages/control/Usuarios'
 import Reportes from './pages/Reportes'
+import Certificado from './pages/Certificado'
 import { Bienvenida } from './components/Historia'
 import { useNavigate } from 'react-router-dom'
 
@@ -84,6 +85,7 @@ function Rutas() {
   return (
     <Routes>
       <Route path="bienvenida" element={<RepasoBienvenida />} />
+      <Route path="certificado" element={<Certificado />} />
       <Route element={<Marco />}>
         <Route index element={<MiOperacion />} />
         <Route path="ruta" element={<Ruta />} />

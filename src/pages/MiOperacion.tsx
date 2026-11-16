@@ -4,6 +4,7 @@ import { MODULOS } from '../data/modulos'
 import { ELITE, TABLERO } from '../data/historia'
 import { DosEspacios } from '../components/Historia'
 import { FirmasPendientes } from '../components/Firma'
+import { TarjetaCertificado } from './Certificado'
 import { useEstado } from '../estado'
 import { Anillo, Barra, ChipEstado, IconoEvidencia, Medalla } from '../components/UI'
 import { IconoCalendario, IconoFlecha, IconoUbicacion } from '../components/Iconos'
@@ -71,6 +72,7 @@ export default function MiOperacion() {
         </div>
       </section>
 
+      <TarjetaCertificado />
       <FirmasPendientes />
 
       {/* Mensaje del tablero (storytelling) */}

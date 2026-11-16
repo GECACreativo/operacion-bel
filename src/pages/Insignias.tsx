@@ -2,6 +2,7 @@ import { NIVELES } from '../data/demo'
 import { MODULOS } from '../data/modulos'
 import { useEstado } from '../estado'
 import { Medalla } from '../components/UI'
+import { TarjetaCertificado } from './Certificado'
 
 export default function Insignias() {
   const { progreso, nivel } = useEstado()
@@ -14,6 +15,8 @@ export default function Insignias() {
         <h1 className="text-3xl font-black">Insignias y nivel</h1>
         <p className="mt-2 text-dagrd-navy/75">Has obtenido {obtenidas} de {progreso.length} insignias de tu ruta.</p>
       </header>
+
+      <TarjetaCertificado />
 
       <section aria-labelledby="t-niveles">
         <h2 id="t-niveles" className="text-xl font-black">Tu nivel</h2>
