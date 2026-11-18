@@ -31,7 +31,8 @@ export function EnlaceSesion({ modalidad, enlace }: { modalidad: string; enlace?
 export default function MiOperacion() {
   const { rol, progreso, xp, xpMax, nivel, perfil, sesiones, companias, esElite } = useEstado()
   if (!rol || !perfil) return <SinRol nombre={perfil?.nombre} />
-  const obligatorias = progreso.filter((p) => p.codigo !== 'RI')
+  // El avance cuenta todas las misiones asignadas a la persona, incluido el reto integrador
+  const obligatorias = progreso
   const aprobadas = obligatorias.filter((p) => p.estado === 'aprobada' || p.estado === 'convalidada')
   const actual = progreso.find((p) => p.estado === 'en_curso') ?? progreso.find((p) => p.estado === 'disponible')
 

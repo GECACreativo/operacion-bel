@@ -27,7 +27,7 @@ function agrupar(filas: Fila[]): Persona[] {
             compania: f.compania ?? 'Sin compañía', elite: f.grupo_elite, ruta: 0, aprobadas: 0, xp: 0, refuerzo: [], asistio: false, siguiente: null }
       m.set(f.perfil_id, p)
     }
-    if (f.codigo !== 'RI') { p.ruta++; if (ok(f.estado)) p.aprobadas++ }
+    p.ruta++; if (ok(f.estado)) p.aprobadas++ // incluye el reto integrador
     p.xp += f.xp
     if (f.estado === 'requiere_refuerzo') p.refuerzo.push(f.codigo)
     if (f.asistencia) p.asistio = true
