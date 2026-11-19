@@ -4,6 +4,7 @@ import { MODULOS, ORDEN_FORMACION } from '../../data/modulos'
 import { ESTADO_INFO } from '../../components/UI'
 import type { EstadoMision } from '../../data/types'
 import ControlNav from './ControlNav'
+import { useEstado } from '../../estado'
 
 interface Fila {
   perfil_id: string; nombre: string; correo: string; rol: string; familia: string; estacion: string | null; compania: string | null
@@ -13,6 +14,7 @@ interface Persona {
   id: string; nombre: string; correo: string; rol: string; familia: string; estacion: string; compania: string; elite: boolean
   ruta: number; aprobadas: number; xp: number; refuerzo: string[]; asistio: boolean; siguiente: string | null
 }
+interface Matricula { matriculado: boolean; fecha: string | null; motivo: string | null }
 
 const ok = (e: EstadoMision) => e === 'aprobada' || e === 'convalidada'
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0)
@@ -75,9 +77,10 @@ const VALOR: Record<Col, (p: Persona) => string | number> = {
   siguiente: (p) => p.siguiente ?? (p.aprobadas === p.ruta ? 'Ruta completa' : 'zzz'), refuerzo: (p) => p.refuerzo.length,
 }
 
-function exportarCSV(personas: Persona[]) {
-  const enc = ['Nombre', 'Correo', 'Rol BEL', 'Familia', 'Estación', 'Compañía', 'Grupo Élite', 'Misiones de la ruta', 'Aprobadas', 'Avance %', 'XP', 'Requiere refuerzo en', 'Siguiente misión']
-  const filas = personas.map((p) => [p.nombre, p.correo, p.rol, p.familia, p.estacion, p.compania, p.elite ? 'Sí' : 'No', p.ruta, p.aprobadas,
+function exportarCSV(personas: Persona[], matr: Map<string, Matricula>) {
+  const enc = ['Nombre', 'Correo', 'Rol BEL', 'Familia', 'Estación', 'Compañía', 'Grupo Élite', 'Matrícula', 'Misiones de la ruta', 'Aprobadas', 'Avance %', 'XP', 'Requiere refuerzo en', 'Siguiente misión']
+  const filas = personas.map((p) => [p.nombre, p.correo, p.rol, p.familia, p.estacion, p.compania, p.elite ? 'Sí' : 'No',
+    matr.get(p.id)?.matriculado === false ? 'Cancelada' : 'Matriculado', p.ruta, p.aprobadas,
     pct(p.aprobadas, p.ruta), p.xp, p.refuerzo.join(' '), p.siguiente ?? ''])
   const csv = [enc, ...filas].map((f) => f.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n')
   const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
@@ -89,19 +92,41 @@ function exportarCSV(personas: Persona[]) {
 export default function Tablero() {
   const [filas, setFilas] = useState<Fila[] | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [f, setF] = useState({ compania: '', estacion: '', familia: '', busqueda: '', elite: false, refuerzo: false })
+  const { esGestor } = useEstado()
+  const [f, setF] = useState({ compania: '', estacion: '', familia: '', busqueda: '', elite: false, refuerzo: false, matricula: 'si' as 'si' | 'no' | '' })
+  const [matr, setMatr] = useState<Map<string, Matricula>>(new Map())
+  const [sel, setSel] = useState<string[]>([])
+  const [soloSel, setSoloSel] = useState(false)
+  const [accion, setAccion] = useState<'cancelar' | 'matricular' | null>(null)
+  const [motivo, setMotivo] = useState('')
+  const [aviso, setAviso] = useState<{ ok: boolean; t: string } | null>(null)
+  const cargarMatriculas = () => supabase.rpc('matriculas').then(({ data }) =>
+    setMatr(new Map(((data ?? []) as ({ perfil_id: string } & Matricula)[]).map((m) => [m.perfil_id, m]))))
+  const matriculado = (id: string) => matr.get(id)?.matriculado !== false
+  const aplicarMatricula = async () => {
+    if (!accion) return
+    if (!motivo.trim()) return setAviso({ ok: false, t: 'Escribe el motivo: queda en la auditoría.' })
+    const { data, error } = await supabase.rpc('cambiar_matricula', { p_perfiles: sel, p_matriculado: accion === 'matricular', p_motivo: motivo.trim() })
+    if (error) return setAviso({ ok: false, t: error.message })
+    setAviso({ ok: true, t: accion === 'matricular'
+      ? `${data} ${data === 1 ? 'persona matriculada' : 'personas matriculadas'} de nuevo.`
+      : `Matrícula cancelada a ${data} ${data === 1 ? 'persona' : 'personas'}. Su avance se conserva y se puede volver a matricular.` })
+    setAccion(null); setMotivo(''); setSel([]); setSoloSel(false); cargarMatriculas()
+  }
   const [orden, setOrden] = useState<{ col: Col; asc: boolean }>({ col: 'nombre', asc: true })
 
   useEffect(() => {
     supabase.rpc('tablero').then(({ data, error }) => { if (error) setError(error.message); else setFilas(data as Fila[]) })
-  }, [])
+    cargarMatriculas()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const todas = useMemo(() => agrupar(filas ?? []), [filas])
   const opciones = (k: 'compania' | 'estacion' | 'familia') => [...new Set(todas.map((p) => p[k]))].sort()
   const q = f.busqueda.trim().toLowerCase()
   const personas = todas.filter((p) => (!f.compania || p.compania === f.compania) && (!f.estacion || p.estacion === f.estacion)
     && (!f.familia || p.familia === f.familia) && (!f.elite || p.elite) && (!f.refuerzo || p.refuerzo.length > 0)
-    && (!q || `${p.nombre} ${p.correo} ${p.rol}`.toLowerCase().includes(q)))
+    && (!q || `${p.nombre} ${p.correo} ${p.rol}`.toLowerCase().includes(q))
+    && (!f.matricula || (f.matricula === 'si') === matriculado(p.id)) && (!soloSel || sel.includes(p.id)))
   const ordenadas = [...personas].sort((a, b) => {
     const va = VALOR[orden.col](a), vb = VALOR[orden.col](b)
     const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' })
@@ -144,7 +169,12 @@ export default function Tablero() {
       </header>
       <ControlNav />
 
-      <div className="tarjeta grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1.3fr_auto]">
+      <div className="tarjeta grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_1.3fr_auto]">
+        <label className="text-xs font-bold">Matrícula
+          <select className={`${campo} mt-1`} value={f.matricula} onChange={(e) => setF({ ...f, matricula: e.target.value as typeof f.matricula })}>
+            <option value="si">Matriculados</option><option value="no">Matrícula cancelada</option><option value="">Todos</option>
+          </select>
+        </label>
         {([['compania', 'Compañía'], ['estacion', 'Estación'], ['familia', 'Familia de roles']] as const).map(([k, t]) => (
           <label key={k} className="text-xs font-bold">{t}
             <select className={`${campo} mt-1`} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })}>
@@ -182,20 +212,50 @@ export default function Tablero() {
           <section className="tarjeta p-5" aria-labelledby="t-personas">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 id="t-personas" className="text-xl font-black">Participantes ({personas.length})</h2>
-              <button onClick={() => exportarCSV(ordenadas)} disabled={!personas.length} className="boton-fantasma">Descargar para Excel</button>
+              <button onClick={() => exportarCSV(ordenadas, matr)} disabled={!personas.length} className="boton-fantasma">Descargar para Excel</button>
             </div>
+            <p className="mt-1 text-xs text-dagrd-navy/60">Marca las casillas para elegir personas específicas: puedes ver solo a las seleccionadas{esGestor ? ', cancelar su matrícula o volver a matricularlas' : ''}.</p>
+            {(sel.length > 0 || soloSel) && (
+              <div className="mt-3 rounded-2xl bg-dagrd-amarillo/25 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="mr-2 text-sm font-bold">{sel.length} {sel.length === 1 ? 'seleccionada' : 'seleccionadas'}</p>
+                  <button onClick={() => setSoloSel(!soloSel)} className="boton-fantasma min-h-[40px] bg-white">{soloSel ? 'Ver todas' : 'Ver solo seleccionadas'}</button>
+                  {esGestor && <button onClick={() => { setAccion('cancelar'); setAviso(null) }} disabled={!sel.length} className="boton-secundario min-h-[40px]">Cancelar matrícula</button>}
+                  {esGestor && <button onClick={() => { setAccion('matricular'); setAviso(null) }} disabled={!sel.length} className="boton-fantasma min-h-[40px] bg-white">Matricular</button>}
+                  <button onClick={() => { setSel([]); setSoloSel(false); setAccion(null) }} className="min-h-[40px] px-2 text-sm font-bold text-dagrd-navy/60 hover:underline">Limpiar selección</button>
+                </div>
+                {accion && (
+                  <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); aplicarMatricula() }}>
+                    <label className="min-w-[240px] flex-1 text-xs font-bold">{accion === 'cancelar' ? `Motivo para cancelar la matrícula de ${sel.length}` : `Motivo para matricular de nuevo a ${sel.length}`}
+                      <input autoFocus value={motivo} onChange={(e) => setMotivo(e.target.value)} className={`${campo} mt-1`}
+                        placeholder={accion === 'cancelar' ? 'Ej.: no continúa en el proceso de formación' : 'Ej.: retoma la formación'} />
+                    </label>
+                    <button type="submit" className="boton-secundario min-h-[40px]">Confirmar</button>
+                    <button type="button" onClick={() => { setAccion(null); setMotivo('') }} className="boton-fantasma min-h-[40px] bg-white">Cancelar</button>
+                  </form>
+                )}
+                {accion === 'cancelar' && <p className="mt-2 text-xs text-dagrd-navy/70">Saldrán del tablero y de los indicadores. No se borra nada de su avance y pueden seguir entrando a la plataforma.</p>}
+              </div>
+            )}
+            {aviso && <p role={aviso.ok ? 'status' : 'alert'} className={`mt-3 rounded-xl p-2 text-sm ${aviso.ok ? 'bg-dagrd-petroleo/10 text-dagrd-petroleo' : 'bg-red-50 text-red-800'}`}>{aviso.t}</p>}
             {personas.length === 0 ? <p className="mt-4 text-sm text-dagrd-navy/70">No hay participantes con estos filtros.</p> : (
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="border-b border-dagrd-navy/15 text-xs uppercase tracking-wide text-dagrd-navy/60">
-                    <tr>{encabezado('nombre', 'Nombre')}{encabezado('rol', 'Rol')}{encabezado('ubicacion', 'Estación · Compañía')}
+                    <tr><th className="w-10 py-2"><input type="checkbox" aria-label="Seleccionar todas las visibles" className="h-4 w-4 accent-[#00394b]"
+                      checked={personas.length > 0 && personas.every((p) => sel.includes(p.id))}
+                      onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...personas.map((p) => p.id)])] : sel.filter((id) => !personas.some((p) => p.id === id)))} /></th>
+                      {encabezado('nombre', 'Nombre')}{encabezado('rol', 'Rol')}{encabezado('ubicacion', 'Estación · Compañía')}
                       {encabezado('avance', 'Avance', true)}{encabezado('xp', 'XP', true)}{encabezado('siguiente', 'Siguiente')}{encabezado('refuerzo', 'Refuerzo')}</tr>
                   </thead>
                   <tbody className="divide-y divide-dagrd-navy/10">
                     {ordenadas.map((p) => (
-                      <tr key={p.id}>
+                      <tr key={p.id} className={sel.includes(p.id) ? 'bg-dagrd-amarillo/10' : ''}>
+                        <td className="py-2.5"><input type="checkbox" aria-label={`Seleccionar a ${p.nombre}`} className="h-4 w-4 accent-[#00394b]" checked={sel.includes(p.id)}
+                          onChange={(e) => setSel(e.target.checked ? [...sel, p.id] : sel.filter((x) => x !== p.id))} /></td>
                         <td className="py-2.5 pr-3"><span className="font-bold">{p.nombre}</span>{p.elite && <span className="ml-2 rounded-pill bg-dagrd-amarillo px-2 py-0.5 text-[10px] font-black">ÉLITE</span>}
-                          <span className="block text-xs text-dagrd-navy/60">{p.correo}</span></td>
+                          <span className="block text-xs text-dagrd-navy/60">{p.correo}</span>
+                          {!matriculado(p.id) && <span className="mt-0.5 inline-block rounded-pill bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-900" title={matr.get(p.id)?.motivo ?? ''}>Matrícula cancelada</span>}</td>
                         <td className="pr-3">{p.rol}</td>
                         <td className="pr-3 text-dagrd-navy/80">{p.estacion} · {p.compania}</td>
                         <td className="pr-3 text-right tabular-nums"><strong>{pct(p.aprobadas, p.ruta)} %</strong><span className="block text-xs text-dagrd-navy/60">{p.aprobadas}/{p.ruta}</span></td>
