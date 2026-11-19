@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { MODULOS, ORDEN_FORMACION } from '../../data/modulos'
-import { ESTADO_INFO } from '../../components/UI'
+import { ChipEstado, ESTADO_INFO } from '../../components/UI'
 import type { EstadoMision } from '../../data/types'
 import ControlNav from './ControlNav'
 import { useEstado } from '../../estado'
@@ -14,6 +14,7 @@ interface Persona {
   id: string; nombre: string; correo: string; rol: string; familia: string; estacion: string; compania: string; elite: boolean
   ruta: number; aprobadas: number; xp: number; refuerzo: string[]; asistio: boolean; siguiente: string | null
 }
+interface Evaluacion { intentos: number; aprobado: boolean; mejor: number }
 interface Matricula { matriculado: boolean; fecha: string | null; motivo: string | null }
 
 const ok = (e: EstadoMision) => e === 'aprobada' || e === 'convalidada'
@@ -39,15 +40,21 @@ function agrupar(filas: Fila[]): Persona[] {
 }
 
 /** Barra horizontal de un solo color: valor en % con etiqueta directa (sin leyenda: el título nombra la serie). */
-function Barras({ titulo, datos }: { titulo: string; datos: { etiqueta: string; valor: number; detalle: string }[] }) {
+function Barras({ titulo, datos, alElegir, activo }: {
+  titulo: string; datos: { etiqueta: string; valor: number; detalle: string; clave?: string }[]; alElegir?: (clave: string) => void; activo?: string
+}) {
   return (
     <figure className="tarjeta p-5">
       <figcaption className="font-black">{titulo}</figcaption>
+      {alElegir && <p className="mt-1 text-xs text-dagrd-navy/60">Haz clic en una misión para ver sus resultados por participante.</p>}
       {datos.length === 0 ? <p className="mt-3 text-sm text-dagrd-navy/60">Sin datos para los filtros elegidos.</p> : (
         <ul className="mt-4 space-y-2.5">
           {datos.map((d) => (
             <li key={d.etiqueta} className="grid grid-cols-[minmax(70px,140px)_1fr_auto] items-center gap-3 text-sm" title={`${d.etiqueta}: ${d.valor} % (${d.detalle})`}>
-              <span className="truncate text-dagrd-navy/80">{d.etiqueta}</span>
+              {alElegir && d.clave
+                ? <button type="button" onClick={() => alElegir(d.clave!)} aria-pressed={activo === d.clave} title={`Ver los resultados de ${d.etiqueta} por participante`}
+                    className={`truncate text-left font-bold underline-offset-2 hover:underline ${activo === d.clave ? 'text-dagrd-azul underline' : 'text-dagrd-navy/80'}`}>{d.etiqueta}</button>
+                : <span className="truncate text-dagrd-navy/80">{d.etiqueta}</span>}
               <span className="relative h-3 rounded-r bg-[#ececea]" aria-hidden>
                 {d.valor > 0 && <span className="absolute inset-y-0 left-0 rounded-r bg-dagrd-azul" style={{ width: `${Math.max(d.valor, 1.5)}%` }} />}
               </span>
@@ -70,11 +77,30 @@ function Indicador({ titulo, valor, detalle, meta }: { titulo: string; valor: st
   )
 }
 
-type Col = 'nombre' | 'rol' | 'ubicacion' | 'avance' | 'xp' | 'siguiente' | 'refuerzo'
+type Col = 'nombre' | 'rol' | 'ubicacion' | 'avance' | 'xp' | 'siguiente' | 'refuerzo' | 'estado' | 'asistencia' | 'evaluacion' | 'reto' | 'xpm'
 const VALOR: Record<Col, (p: Persona) => string | number> = {
   nombre: (p) => p.nombre, rol: (p) => p.rol, ubicacion: (p) => `${p.estacion} ${p.compania}`,
-  avance: (p) => (p.ruta ? p.aprobadas / p.ruta : 0), xp: (p) => p.xp,
+  avance: (p) => (p.ruta ? p.aprobadas / p.ruta : 0), xp: (p) => p.xp, estado: () => 0, asistencia: () => 0, evaluacion: () => 0, reto: () => 0, xpm: () => 0,
   siguiente: (p) => p.siguiente ?? (p.aprobadas === p.ruta ? 'Ruta completa' : 'zzz'), refuerzo: (p) => p.refuerzo.length,
+}
+
+function exportarMision(personas: Persona[], codigo: string, fm: (id: string) => Fila | undefined, ev: (id: string) => Evaluacion | undefined) {
+  const enc = ['Nombre', 'Correo', 'Rol BEL', 'Estación', 'Compañía', 'Misión', 'Estado', 'Asistencia', 'Evaluación', 'Mejor puntaje %', 'Intentos', 'Reto práctico', 'XP misión']
+  const filas = personas.map((p) => {
+    const x = fm(p.id), e = ev(p.id)
+    return [p.nombre, p.correo, p.rol, p.estacion, p.compania, codigo, ESTADO_INFO[x?.estado ?? 'bloqueada']?.texto ?? '', x?.asistencia ? 'Sí' : 'No',
+      e ? (e.aprobado ? 'Aprobada' : 'No aprobada') : 'Pendiente', e ? Math.round(e.mejor * 100) : '', e?.intentos ?? 0,
+      x?.reto === 'aprobado' ? 'Aprobado' : x?.reto === 'no_aprobado' ? 'No aprobado' : 'Pendiente', x?.xp ?? 0]
+  })
+  descargar([enc, ...filas], `operacion-bel-${codigo}-${new Date().toISOString().slice(0, 10)}`)
+}
+
+function descargar(tabla: (string | number)[][], nombre: string) {
+  const csv = tabla.map((f) => f.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n')
+  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url; a.download = `${nombre}.csv`; a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 function exportarCSV(personas: Persona[], matr: Map<string, Matricula>) {
@@ -93,7 +119,8 @@ export default function Tablero() {
   const [filas, setFilas] = useState<Fila[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { esGestor } = useEstado()
-  const [f, setF] = useState({ compania: '', estacion: '', familia: '', busqueda: '', elite: false, refuerzo: false, matricula: 'si' as 'si' | 'no' | '' })
+  const [f, setF] = useState({ compania: '', estacion: '', familia: '', busqueda: '', elite: false, refuerzo: false, matricula: 'si' as 'si' | 'no' | '', mision: '' })
+  const [evals, setEvals] = useState<Map<string, Evaluacion>>(new Map())
   const [matr, setMatr] = useState<Map<string, Matricula>>(new Map())
   const [sel, setSel] = useState<string[]>([])
   const [soloSel, setSoloSel] = useState(false)
@@ -118,7 +145,12 @@ export default function Tablero() {
   useEffect(() => {
     supabase.rpc('tablero').then(({ data, error }) => { if (error) setError(error.message); else setFilas(data as Fila[]) })
     cargarMatriculas()
+    supabase.rpc('tablero_cuestionarios').then(({ data }) => setEvals(new Map(((data ?? []) as ({ perfil_id: string; codigo: string } & Evaluacion)[])
+      .map((e) => [`${e.perfil_id}|${e.codigo}`, { intentos: e.intentos, aprobado: e.aprobado, mejor: Number(e.mejor) }]))))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const filaDe = useMemo(() => new Map((filas ?? []).map((x) => [`${x.perfil_id}|${x.codigo}`, x])), [filas])
+  const fm = (id: string) => filaDe.get(`${id}|${f.mision}`)
+  const ev = (id: string, c = f.mision) => evals.get(`${id}|${c}`)
 
   const todas = useMemo(() => agrupar(filas ?? []), [filas])
   const opciones = (k: 'compania' | 'estacion' | 'familia') => [...new Set(todas.map((p) => p[k]))].sort()
@@ -126,15 +158,27 @@ export default function Tablero() {
   const personas = todas.filter((p) => (!f.compania || p.compania === f.compania) && (!f.estacion || p.estacion === f.estacion)
     && (!f.familia || p.familia === f.familia) && (!f.elite || p.elite) && (!f.refuerzo || p.refuerzo.length > 0)
     && (!q || `${p.nombre} ${p.correo} ${p.rol}`.toLowerCase().includes(q))
-    && (!f.matricula || (f.matricula === 'si') === matriculado(p.id)) && (!soloSel || sel.includes(p.id)))
+    && (!f.matricula || (f.matricula === 'si') === matriculado(p.id)) && (!soloSel || sel.includes(p.id))
+    && (!f.mision || !!fm(p.id)))
+  const valor = (col: Col, p: Persona): string | number => {
+    const x = fm(p.id), e = ev(p.id)
+    switch (col) {
+      case 'estado': return x?.estado ?? ''
+      case 'asistencia': return x?.asistencia ? 1 : 0
+      case 'evaluacion': return e ? (e.aprobado ? 2 : 1) + e.mejor : 0
+      case 'reto': return x?.reto === 'aprobado' ? 2 : x?.reto === 'no_aprobado' ? 1 : 0
+      case 'xpm': return x?.xp ?? 0
+      default: return VALOR[col](p)
+    }
+  }
   const ordenadas = [...personas].sort((a, b) => {
-    const va = VALOR[orden.col](a), vb = VALOR[orden.col](b)
+    const va = valor(orden.col, a), vb = valor(orden.col, b)
     const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' })
     return (orden.asc ? c : -c) || a.nombre.localeCompare(b.nombre, 'es')
   })
   const encabezado = (col: Col, texto: string, derecha = false) => (
     <th className={`pr-3 ${col === 'nombre' ? 'py-2' : ''} ${derecha ? 'text-right' : ''}`} aria-sort={orden.col === col ? (orden.asc ? 'ascending' : 'descending') : 'none'}>
-      <button type="button" onClick={() => setOrden({ col, asc: orden.col === col ? !orden.asc : col !== 'avance' && col !== 'xp' })}
+      <button type="button" onClick={() => setOrden({ col, asc: orden.col === col ? !orden.asc : !['avance', 'xp', 'xpm', 'evaluacion', 'reto', 'asistencia'].includes(col) })}
         className={`inline-flex min-h-[32px] items-center gap-1 uppercase tracking-wide hover:text-dagrd-navy ${orden.col === col ? 'text-dagrd-navy' : ''}`}>
         {texto}<span aria-hidden className="text-[10px]">{orden.col === col ? (orden.asc ? '▲' : '▼') : '↕'}</span>
       </button>
@@ -142,11 +186,13 @@ export default function Tablero() {
   )
   const ids = new Set(personas.map((p) => p.id))
   const filasF = (filas ?? []).filter((x) => ids.has(x.perfil_id))
+  const filasI = f.mision ? filasF.filter((x) => x.codigo === f.mision) : filasF // indicadores de práctica y evaluación
+  const presentadas = filasI.map((x) => ev(x.perfil_id, x.codigo)).filter(Boolean) as Evaluacion[]
 
   const porModulo = ORDEN_FORMACION.map((c) => {
     const del = filasF.filter((x) => x.codigo === c)
     const a = del.filter((x) => ok(x.estado)).length
-    return { etiqueta: `${c} · ${MODULOS[c]?.nombre ?? ''}`, valor: pct(a, del.length), detalle: `${a}/${del.length}`, n: del.length }
+    return { etiqueta: `${c} · ${MODULOS[c]?.nombre ?? ''}`, clave: c, valor: pct(a, del.length), detalle: `${a}/${del.length}`, n: del.length }
   }).filter((d) => d.n > 0)
   const porGrupo = (k: 'compania' | 'estacion' | 'familia') => [...new Set(personas.map((p) => p[k]))].sort().map((g) => {
     const ps = personas.filter((p) => p[k] === g)
@@ -154,7 +200,11 @@ export default function Tablero() {
     return { etiqueta: g, valor: Math.round(prom * 100), detalle: `${ps.length} pers.` }
   })
 
-  const retos = filasF.filter((x) => x.reto !== 'pendiente')
+  const retos = filasI.filter((x) => x.reto !== 'pendiente')
+  const elegirMision = (c: string) => {
+    setF({ ...f, mision: f.mision === c ? '' : c })
+    setTimeout(() => document.getElementById('t-personas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
   const conAsistencia = personas.filter((p) => p.asistio).length
   const completas = personas.filter((p) => p.ruta > 0 && p.aprobadas === p.ruta).length
 
@@ -169,10 +219,16 @@ export default function Tablero() {
       </header>
       <ControlNav />
 
-      <div className="tarjeta grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_1.3fr_auto]">
+      <div className="tarjeta grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-xs font-bold">Matrícula
           <select className={`${campo} mt-1`} value={f.matricula} onChange={(e) => setF({ ...f, matricula: e.target.value as typeof f.matricula })}>
             <option value="si">Matriculados</option><option value="no">Matrícula cancelada</option><option value="">Todos</option>
+          </select>
+        </label>
+        <label className="text-xs font-bold">Misión
+          <select className={`${campo} mt-1`} value={f.mision} onChange={(e) => setF({ ...f, mision: e.target.value })}>
+            <option value="">Todas (avance general)</option>
+            {ORDEN_FORMACION.filter((c) => (filas ?? []).some((x) => x.codigo === c)).map((c) => <option key={c} value={c}>{c === 'RI' ? 'RI · Reto integrador' : `${c} · ${MODULOS[c]?.nombre ?? ''}`}</option>)}
           </select>
         </label>
         {([['compania', 'Compañía'], ['estacion', 'Estación'], ['familia', 'Familia de roles']] as const).map(([k, t]) => (
@@ -193,15 +249,16 @@ export default function Tablero() {
 
       {filas === null ? <p role="status">Cargando indicadores…</p> : (
         <>
-          <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Indicador titulo="Cobertura de formación" valor={`${pct(conAsistencia, personas.length)} %`} detalle={`${conAsistencia} de ${personas.length} con al menos una asistencia`} meta={90} />
             <Indicador titulo="Finalización de ruta" valor={`${pct(completas, personas.length)} %`} detalle={`${completas} de ${personas.length} completaron su ruta`} meta={85} />
-            <Indicador titulo="Aprobación práctica" valor={`${pct(retos.filter((x) => x.reto === 'aprobado').length, retos.length)} %`} detalle={`${retos.length} retos evaluados`} meta={85} />
+            <Indicador titulo={`Aprobación práctica${f.mision ? ` · ${f.mision}` : ''}`} valor={`${pct(retos.filter((x) => x.reto === 'aprobado').length, retos.length)} %`} detalle={`${retos.length} retos evaluados`} meta={85} />
+            <Indicador titulo={`Aprobación de evaluaciones${f.mision ? ` · ${f.mision}` : ''}`} valor={`${pct(presentadas.filter((e) => e.aprobado).length, presentadas.length)} %`} detalle={`${presentadas.length} cuestionarios presentados`} meta={85} />
             <Indicador titulo="Requieren refuerzo" valor={String(personas.filter((p) => p.refuerzo.length).length)} detalle="personas con al menos una misión en refuerzo" />
           </section>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Barras titulo="Misiones aprobadas por módulo (% de quienes la tienen asignada)" datos={porModulo} />
+            <Barras titulo="Misiones aprobadas por módulo (% de quienes la tienen asignada)" datos={porModulo} alElegir={elegirMision} activo={f.mision} />
             <div className="space-y-4">
               <Barras titulo="Avance promedio por compañía" datos={porGrupo('compania')} />
               <Barras titulo="Avance promedio por familia de roles" datos={porGrupo('familia')} />
@@ -211,8 +268,9 @@ export default function Tablero() {
 
           <section className="tarjeta p-5" aria-labelledby="t-personas">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 id="t-personas" className="text-xl font-black">Participantes ({personas.length})</h2>
-              <button onClick={() => exportarCSV(ordenadas, matr)} disabled={!personas.length} className="boton-fantasma">Descargar para Excel</button>
+              <h2 id="t-personas" className="text-xl font-black">Participantes ({personas.length}){f.mision && <span className="text-dagrd-azul"> · {f.mision === 'RI' ? 'Reto integrador' : `${f.mision} ${MODULOS[f.mision]?.nombre ?? ''}`}</span>}</h2>
+              {f.mision && <button onClick={() => setF({ ...f, mision: '' })} className="boton-fantasma">Ver avance general</button>}
+              <button onClick={() => (f.mision ? exportarMision(ordenadas, f.mision, fm, ev) : exportarCSV(ordenadas, matr))} disabled={!personas.length} className="boton-fantasma">Descargar para Excel</button>
             </div>
             <p className="mt-1 text-xs text-dagrd-navy/60">Marca las casillas para elegir personas específicas: puedes ver solo a las seleccionadas{esGestor ? ', cancelar su matrícula o volver a matricularlas' : ''}.</p>
             {(sel.length > 0 || soloSel) && (
@@ -240,13 +298,14 @@ export default function Tablero() {
             {aviso && <p role={aviso.ok ? 'status' : 'alert'} className={`mt-3 rounded-xl p-2 text-sm ${aviso.ok ? 'bg-dagrd-petroleo/10 text-dagrd-petroleo' : 'bg-red-50 text-red-800'}`}>{aviso.t}</p>}
             {personas.length === 0 ? <p className="mt-4 text-sm text-dagrd-navy/70">No hay participantes con estos filtros.</p> : (
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
+                <table className={`w-full ${f.mision ? 'min-w-[960px]' : 'min-w-[760px]'} text-left text-sm`}>
                   <thead className="border-b border-dagrd-navy/15 text-xs uppercase tracking-wide text-dagrd-navy/60">
                     <tr><th className="w-10 py-2"><input type="checkbox" aria-label="Seleccionar todas las visibles" className="h-4 w-4 accent-[#00394b]"
                       checked={personas.length > 0 && personas.every((p) => sel.includes(p.id))}
                       onChange={(e) => setSel(e.target.checked ? [...new Set([...sel, ...personas.map((p) => p.id)])] : sel.filter((id) => !personas.some((p) => p.id === id)))} /></th>
                       {encabezado('nombre', 'Nombre')}{encabezado('rol', 'Rol')}{encabezado('ubicacion', 'Estación · Compañía')}
-                      {encabezado('avance', 'Avance', true)}{encabezado('xp', 'XP', true)}{encabezado('siguiente', 'Siguiente')}{encabezado('refuerzo', 'Refuerzo')}</tr>
+                      {f.mision ? <>{encabezado('estado', 'Estado')}{encabezado('asistencia', 'Asistencia')}{encabezado('evaluacion', 'Evaluación')}{encabezado('reto', 'Reto práctico')}{encabezado('xpm', 'XP misión', true)}</>
+                        : <>{encabezado('avance', 'Avance', true)}{encabezado('xp', 'XP', true)}{encabezado('siguiente', 'Siguiente')}{encabezado('refuerzo', 'Refuerzo')}</>}</tr>
                   </thead>
                   <tbody className="divide-y divide-dagrd-navy/10">
                     {ordenadas.map((p) => (
@@ -258,10 +317,19 @@ export default function Tablero() {
                           {!matriculado(p.id) && <span className="mt-0.5 inline-block rounded-pill bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-900" title={matr.get(p.id)?.motivo ?? ''}>Matrícula cancelada</span>}</td>
                         <td className="pr-3">{p.rol}</td>
                         <td className="pr-3 text-dagrd-navy/80">{p.estacion} · {p.compania}</td>
+                        {f.mision ? (() => { const x = fm(p.id), e = ev(p.id); return <>
+                          <td className="pr-3">{x && <ChipEstado estado={x.estado} />}</td>
+                          <td className="pr-3">{x?.asistencia ? <span className="font-bold text-dagrd-petroleo">✓ Asistió</span> : <span className="text-dagrd-navy/60">Sin asistencia</span>}</td>
+                          <td className="pr-3">{e ? <><span className={`whitespace-nowrap font-bold ${e.aprobado ? 'text-dagrd-petroleo' : 'text-orange-800'}`}>{e.aprobado ? '✓ Aprobada' : 'No aprobada'} · {Math.round(e.mejor * 100)} %</span>
+                            <span className="block text-xs text-dagrd-navy/60">{e.intentos} {e.intentos === 1 ? 'intento' : 'intentos'}</span></> : <span className="text-dagrd-navy/60">Pendiente</span>}</td>
+                          <td className="pr-3">{x?.reto === 'aprobado' ? <span className="font-bold text-dagrd-petroleo">✓ Aprobado</span> : x?.reto === 'no_aprobado' ? <span className="font-bold text-orange-800">No aprobado</span> : <span className="text-dagrd-navy/60">Pendiente</span>}</td>
+                          <td className="pr-3 text-right tabular-nums">{x?.xp ?? 0}</td>
+                        </> })() : <>
                         <td className="pr-3 text-right tabular-nums"><strong>{pct(p.aprobadas, p.ruta)} %</strong><span className="block text-xs text-dagrd-navy/60">{p.aprobadas}/{p.ruta}</span></td>
                         <td className="pr-3 text-right tabular-nums">{p.xp}</td>
                         <td className="pr-3">{p.siguiente ?? (p.aprobadas === p.ruta ? 'Ruta completa' : '—')}</td>
                         <td>{p.refuerzo.length ? <span className={`rounded-pill px-2 py-0.5 text-xs font-bold ${ESTADO_INFO.requiere_refuerzo.clase}`}>⚠ {p.refuerzo.join(', ')}</span> : '—'}</td>
+                        </>}
                       </tr>
                     ))}
                   </tbody>
